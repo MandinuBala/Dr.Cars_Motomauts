@@ -116,11 +116,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     } catch (e) {
       debugPrint("Dashboard init error: $e");
-      setState(() {
-        isLoading = false;
-        _checkingVehicleInfo = false;
-        errorMessage = "Failed to load data.";
-      });
+      try {
+        setState(() {
+          isLoading = false;
+          _checkingVehicleInfo = false;
+          errorMessage = "Failed to load data.";
+        });
+      } catch (_) {}
+      // setState(() {
+      //   isLoading = false;
+      //   _checkingVehicleInfo = false;
+      //   errorMessage = "Failed to load data.";
+      // });
     }
   }
 
@@ -132,7 +139,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     'Suzuki': ['Vitara'],
     'Mazda': ['CX-5'],
     'Kia': ['Picanto'],
-    'Hyundai': ['Santa Fe'],
+    'Hyundai': ['Santa fe'],
   };
 
   Widget _buildVehicleDisplay(double w) {

@@ -273,7 +273,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'i20',
       'Elantra',
       'Tucson',
-      'Santa Fe',
+      'Santa fe',
       'Accent',
       'Venue',
       'Creta',

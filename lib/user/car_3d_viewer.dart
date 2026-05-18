@@ -46,7 +46,9 @@ class _Car3DViewerPageState extends State<Car3DViewerPage> {
     try {
       // Sanitize inputs to prevent JS injection
       final brand = widget.brand.replaceAll('"', '');
-      final model = widget.model.replaceAll('"', '');
+      var model = widget.model.replaceAll('"', '');
+      model = widget.model.replaceAll(' ', '');
+      print('Injecting JS with model="$model"');
       await _controller.runJavaScript('''
         try {
           window.BRAND = "$brand";

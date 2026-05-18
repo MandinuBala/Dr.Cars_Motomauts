@@ -1269,6 +1269,8 @@ class BluetoothService {
     'P2448': 'Secondary Air Injection High Air Flow (Bank 1)',
     'P0700': 'Transmission Control System Malfunction',
     'P0733': 'Incorrect Gear Ratio – 3rd Gear',
+    'P0205': 'Injector Circuit/Open – Cylinder 5',
+    'P0501': 'Vehicle Speed Sensor A Range/Performance',
     'P0504': 'Brake Switch "A"/"B" Correlation',
     'P2299': 'Brake Pedal Position Incorrect',
     'P2047': 'Reductant Injection Valve Circuit/Open Issue',

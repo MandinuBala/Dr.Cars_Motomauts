@@ -157,8 +157,7 @@ class _ServiceHistorypageState extends State<ServiceHistorypage> {
       bool matchesDate = true;
 
       if (_searchController.text.isNotEmpty) {
-        matchesSearch = record['serviceProvider']
-            .toString()
+        matchesSearch = (record['serviceProvider']?.toString() ?? '')
             .toLowerCase()
             .contains(_searchController.text.toLowerCase());
       }
@@ -559,9 +558,15 @@ class _ServiceHistorypageState extends State<ServiceHistorypage> {
                                         record['date'],
                                       )?.toString().split(' ')[0]) ??
                                       '-',
-                                  mileage: record['serviceMileage'].toString(),
-                                  provider: record['serviceProvider'],
-                                  serviceType: record['serviceType'],
+                                  mileage:
+                                      record['serviceMileage']?.toString() ??
+                                      '-', // ✅ null safe
+                                  provider:
+                                      record['serviceProvider']?.toString() ??
+                                      'Unknown Center', // ✅
+                                  serviceType:
+                                      record['serviceType']?.toString() ??
+                                      'General Service', // ✅
                                 ),
                               );
                             },

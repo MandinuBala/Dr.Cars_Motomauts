@@ -24,6 +24,31 @@ app.use('/models', (req, res, next) => {
   next();
 }, express.static('public/models')); // 3d model static files
 
+const https = require('https');
+
+// Proxy route for 3D models from GitHub Releases
+app.get('/models/:filename', (req, res) => {
+  const filename = req.params.filename;
+  const githubUrl = `https://github.com/MandinuBala/Dr.Cars-FYP/releases/download/models-v1/${filename}`;
+  
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  
+  const fetchUrl = (url) => {
+    https.get(url, { headers: { 'User-Agent': 'DrCars-FYP' } }, (response) => {
+      if (response.statusCode === 301 || response.statusCode === 302) {
+        fetchUrl(response.headers.location);
+        return;
+      }
+      res.setHeader('Content-Type', 'model/gltf-binary');
+      response.pipe(res);
+    }).on('error', () => {
+      res.status(500).json({ error: 'Failed to fetch model' });
+    });
+  };
+  
+  fetchUrl(githubUrl);
+});
+
 // Serve document photos statically
 app.use('/documents', (req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');

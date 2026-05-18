@@ -19,10 +19,7 @@ require("dotenv").config();
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use('/models', (req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  next();
-}, express.static('public/models')); // 3d model static files
+
 
 const https = require('https');
 

@@ -22,6 +22,7 @@ app.use(express.json());
 
 
 const https = require('https');
+// Deploy v2 - proxy route for 3D models
 
 // Proxy route for 3D models from GitHub Releases
 app.get('/models/:filename', (req, res) => {

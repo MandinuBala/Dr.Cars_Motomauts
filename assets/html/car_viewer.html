@@ -264,7 +264,7 @@ function initViewer() {
   document.getElementById('ltxt').textContent = 'LOADING';
   document.getElementById('ring').style.display = 'block';
 
-  var baseUrl = 'https://drcars-fyp-production.up.railway.app';
+  var url = baseUrl + '/models/' + modelName + '.glb';
   console.log('Loading 3D model from: ' + url);
 
   function doLoad() {

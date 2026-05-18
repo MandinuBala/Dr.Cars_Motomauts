@@ -376,6 +376,7 @@ import 'package:dr_cars_fyp/providers/locale_provider.dart';
 import 'package:dr_cars_fyp/theme/app_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:dr_cars_fyp/widgets/app_bottom_nav.dart';
+import 'package:dr_cars_fyp/service/dtc_solution_page.dart';
 
 class OBD2Page extends StatefulWidget {
   const OBD2Page({Key? key}) : super(key: key);
@@ -835,6 +836,46 @@ class _OBD2PageState extends State<OBD2Page> {
                                     fontSize: 12,
                                   ),
                                 ),
+                                const SizedBox(height: 8),
+
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder:
+                                              (_) => DTCSolutionPage(
+                                                code: entry['code'] ?? '',
+                                              ),
+                                        ),
+                                      );
+                                    },
+
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.gold,
+                                      foregroundColor: Colors.black,
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 8,
+                                      ),
+
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+
+                                    child: Text(
+                                      'View Solution',
+                                      style: GoogleFonts.jost(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -1021,13 +1062,38 @@ class BluetoothService {
 
   Future<List<String>> getDTCs() async {
     final res = await sendAndRead('03');
-    if (res.length < 4 || res.toLowerCase().contains('no')) return [];
+
+    if (res.isEmpty || res.toLowerCase().contains('no')) {
+      return [];
+    }
+
     List<String> dtcs = [];
+
     try {
-      for (int i = 4; i + 3 < res.length; i += 4) {
-        dtcs.add(_decodeDTC(res.substring(i, i + 4)));
+      // Remove spaces and line breaks
+      String cleanRes = res
+          .replaceAll(' ', '')
+          .replaceAll('\r', '')
+          .replaceAll('\n', '');
+
+      // Remove "43" header
+      if (cleanRes.startsWith('43')) {
+        cleanRes = cleanRes.substring(2);
       }
-    } catch (_) {}
+
+      // Read each DTC (4 hex characters)
+      for (int i = 0; i + 4 <= cleanRes.length; i += 4) {
+        String rawCode = cleanRes.substring(i, i + 4);
+
+        // Ignore empty codes
+        if (rawCode == '0000') continue;
+
+        dtcs.add(_decodeDTC(rawCode));
+      }
+    } catch (e) {
+      debugPrint('DTC Parsing Error: $e');
+    }
+
     return dtcs;
   }
 
@@ -1069,6 +1135,9 @@ class BluetoothService {
     'P0335': 'Crankshaft Position Sensor "A" Circuit Malfunction',
     'P0340': 'Camshaft Position Sensor Circuit Malfunction',
     'P0341': 'Camshaft Position Sensor "A" Circuit Range/Performance (Bank 1)',
+    'P0342': 'Camshaft Position Sensor "A" Circuit Low Input',
+    'P0343': 'Camshaft Position Sensor "A" Circuit High Input',
+    'P0344': 'Camshaft Position Sensor "A" Circuit Intermittent',
     'P06DE': 'Engine Oil Pressure Control Circuit Stuck On',
     'P0001': 'Fuel Volume Regulator Control Circuit/Open',
     'P0002': 'Fuel Volume Regulator Range/Performance',

@@ -18,7 +18,7 @@ class _Car3DViewerPageState extends State<Car3DViewerPage> {
   // Use environment config or const — never hardcode a local IP
   static const String _baseUrl = String.fromEnvironment(
     'MODEL_SERVER_URL',
-    defaultValue: 'http://192.168.1.21:5000',
+    defaultValue: 'https://drcars-fyp-production.up.railway.app',
   );
 
   @override

@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import '../models/vehicle_document.dart';
 
 class DocumentService {
-  static const _base = 'http://192.168.1.21:5000';
+  static const _base = 'https://drcars-fyp-production.up.railway.app';
 
   /// Upload photo to server, returns the photo URL
   static Future<String?> uploadPhoto(File photo) async {

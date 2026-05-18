@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:dr_cars_fyp/theme/app_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:dr_cars_fyp/service/add_service.dart';
 
 class AppointmentsScreen extends StatefulWidget {
   const AppointmentsScreen({super.key});
@@ -528,32 +529,106 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
                                 ],
                               )
                             else if (status == 'accepted')
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: AppColors.success.withOpacity(0.08),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: AppColors.success.withOpacity(0.3),
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.info_outline,
-                                      color: AppColors.success,
-                                      size: 16,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Customer has been notified.',
-                                      style: GoogleFonts.jost(
-                                        color: AppColors.success,
-                                        fontSize: 13,
+                              Column(
+                                children: [
+                                  // ── Info banner ──────────────────────────────────────
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.success.withOpacity(
+                                        0.08,
+                                      ),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: AppColors.success.withOpacity(
+                                          0.3,
+                                        ),
                                       ),
                                     ),
-                                  ],
-                                ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.info_outline,
+                                          color: AppColors.success,
+                                          size: 16,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            'Customer confirmed. Add service charges to send receipt.',
+                                            style: GoogleFonts.jost(
+                                              color: AppColors.success,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+
+                                  // ── Send Receipt button ───────────────────────────────
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton.icon(
+                                      onPressed: () {
+                                        final vNumber =
+                                            data['vehicleNumber']?.toString() ??
+                                            '';
+                                        if (vNumber.isEmpty) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              backgroundColor: AppColors.error,
+                                              content: Text(
+                                                'Vehicle number not found.',
+                                                style: GoogleFonts.jost(
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                          return;
+                                        }
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder:
+                                                (_) => AddService(
+                                                  vehicleNumber: vNumber,
+                                                ),
+                                          ),
+                                        );
+                                      },
+                                      icon: const Icon(
+                                        Icons.receipt_long,
+                                        size: 16,
+                                      ),
+                                      label: Text(
+                                        'Add Service Charges & Send Receipt',
+                                        style: GoogleFonts.jost(
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 1.0,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.gold,
+                                        foregroundColor: AppColors.obsidian,
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 12,
+                                        ),
+                                        elevation: 0,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               )
                             else if (status == 'rejected')
                               Container(

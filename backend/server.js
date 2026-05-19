@@ -541,7 +541,7 @@ app.patch("/appointments/:id/status", async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    if (!["pending", "accepted", "rejected"].includes(status)) {
+    if (!["pending", "accepted", "rejected", "vehicle_received"].includes(status)) {
       return res.status(400).json({ message: "Invalid status" });
     }
 

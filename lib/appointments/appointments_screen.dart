@@ -26,6 +26,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
   List<Map<String, dynamic>> _pendingAppointments = [];
   List<Map<String, dynamic>> _acceptedAppointments = [];
   List<Map<String, dynamic>> _rejectedAppointments = [];
+  List<Map<String, dynamic>> _vehicleReceivedAppointments = [];
 
   bool _isLoading = true;
   Timer? _pollingTimer;
@@ -34,7 +35,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _initialize();
     _pollingTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       _fetchAllSilently();
@@ -75,6 +76,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
     await Future.wait([
       _fetchByStatus('pending'),
       _fetchByStatus('accepted'),
+      _fetchByStatus('vehicle_received'),
       _fetchByStatus('rejected'),
     ]);
     if (mounted) setState(() => _isLoading = false);
@@ -85,6 +87,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
     await Future.wait([
       _fetchByStatus('pending'),
       _fetchByStatus('accepted'),
+      _fetchByStatus('vehicle_received'),
       _fetchByStatus('rejected'),
     ]);
   }
@@ -117,6 +120,8 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
           setState(() {
             if (status == 'pending') _pendingAppointments = fetched;
             if (status == 'accepted') _acceptedAppointments = fetched;
+            if (status == 'vehicle_received')
+              _vehicleReceivedAppointments = fetched;
             if (status == 'rejected') _rejectedAppointments = fetched;
           });
         }
@@ -292,6 +297,11 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
               AppColors.success,
             ),
             _tabLabel(
+              'In Service',
+              _vehicleReceivedAppointments.length,
+              AppColors.gold,
+            ),
+            _tabLabel(
               'Rejected',
               _rejectedAppointments.length,
               AppColors.error,
@@ -314,6 +324,10 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
                   _buildAppointmentList(
                     _applyDateFilter(_acceptedAppointments),
                     'accepted',
+                  ),
+                  _buildAppointmentList(
+                    _applyDateFilter(_vehicleReceivedAppointments),
+                    'vehicle_received',
                   ),
                   _buildAppointmentList(
                     _applyDateFilter(_rejectedAppointments),
@@ -529,9 +543,40 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
                                 ],
                               )
                             else if (status == 'accepted')
+                              // ── Waiting for customer to hand over vehicle ─────────
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: AppColors.gold.withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: AppColors.gold.withOpacity(0.3),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.hourglass_top,
+                                      color: AppColors.gold,
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Awaiting vehicle handover from customer.',
+                                        style: GoogleFonts.jost(
+                                          color: AppColors.gold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            else if (status == 'vehicle_received')
+                              // ── Vehicle received — now send the receipt ───────────
                               Column(
                                 children: [
-                                  // ── Info banner ──────────────────────────────────────
                                   Container(
                                     padding: const EdgeInsets.all(10),
                                     decoration: BoxDecoration(
@@ -548,14 +593,14 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
                                     child: Row(
                                       children: [
                                         const Icon(
-                                          Icons.info_outline,
+                                          Icons.car_repair,
                                           color: AppColors.success,
                                           size: 16,
                                         ),
                                         const SizedBox(width: 8),
                                         Expanded(
                                           child: Text(
-                                            'Customer confirmed. Add service charges to send receipt.',
+                                            'Vehicle received. Add service charges and send receipt to customer.',
                                             style: GoogleFonts.jost(
                                               color: AppColors.success,
                                               fontSize: 12,
@@ -566,8 +611,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
                                     ),
                                   ),
                                   const SizedBox(height: 10),
-
-                                  // ── Send Receipt button ───────────────────────────────
                                   SizedBox(
                                     width: double.infinity,
                                     child: ElevatedButton.icon(

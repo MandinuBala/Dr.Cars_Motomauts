@@ -160,7 +160,12 @@ class _AppointmentNotificationPageState
       await _fetchAppointments();
       return;
     }
-    throw Exception('Failed to update appointment');
+    print(
+      'Failed to update appointment. Status code: ${response.statusCode}, Body: ${response.body}',
+    );
+    throw Exception(
+      'Failed to update appointment Response: ${response.statusCode} ${response.body}',
+    );
   }
 
   // ── Tab with badge ────────────────────────────────────────────────────────
@@ -205,7 +210,7 @@ class _AppointmentNotificationPageState
     }
 
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         backgroundColor: AppColors.richBlack,
         appBar: AppBar(
@@ -223,6 +228,8 @@ class _AppointmentNotificationPageState
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(kToolbarHeight),
             child: TabBar(
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
               labelColor: AppColors.gold,
               unselectedLabelColor: AppColors.textMuted,
               indicatorColor: AppColors.gold,
@@ -240,6 +247,11 @@ class _AppointmentNotificationPageState
                   AppColors.success,
                 ),
                 _tabLabel(
+                  'In Service',
+                  _countByStatus('vehicle_received'),
+                  AppColors.gold,
+                ),
+                _tabLabel(
                   'Rejected',
                   _countByStatus('rejected'),
                   AppColors.error,
@@ -252,6 +264,7 @@ class _AppointmentNotificationPageState
           children: [
             _buildAppointmentList('pending'),
             _buildAppointmentList('accepted'),
+            _buildAppointmentList('vehicle_received'),
             _buildAppointmentList('rejected'),
           ],
         ),
@@ -272,13 +285,17 @@ class _AppointmentNotificationPageState
                   ? Icons.hourglass_empty
                   : status == 'accepted'
                   ? Icons.check_circle_outline
+                  : status == 'vehicle_received'
+                  ? Icons.car_repair
                   : Icons.cancel_outlined,
               size: 48,
               color: AppColors.textMuted,
             ),
             const SizedBox(height: 12),
             Text(
-              'No $status appointments.',
+              status == 'vehicle_received'
+                  ? 'No vehicles currently in service.'
+                  : 'No $status appointments.',
               style: GoogleFonts.jost(color: AppColors.textMuted, fontSize: 14),
             ),
           ],
@@ -479,41 +496,107 @@ class _AppointmentNotificationPageState
                                   ),
                                 )
                               else if (status == 'accepted')
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton.icon(
-                                    onPressed: () async {
-                                      try {
-                                        await _deleteAppointment(docId);
-                                      } catch (e) {
-                                        if (mounted) {
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            SnackBar(
-                                              content: Text('Error: $e'),
-                                            ),
-                                          );
-                                        }
-                                      }
-                                    },
-                                    icon: const Icon(
-                                      Icons.check_circle_outline,
-                                      size: 16,
-                                    ),
-                                    label: const Text('Handed Over Vehicle'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColors.gold,
-                                      foregroundColor: AppColors.obsidian,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 12,
-                                      ),
-                                      elevation: 0,
-                                      shape: RoundedRectangleBorder(
+                                Column(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(10),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.success.withOpacity(
+                                          0.08,
+                                        ),
                                         borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: AppColors.success.withOpacity(
+                                            0.3,
+                                          ),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.info_outline,
+                                            color: AppColors.success,
+                                            size: 16,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              'Your appointment is confirmed. Click below once you hand over your vehicle.',
+                                              style: GoogleFonts.jost(
+                                                color: AppColors.success,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                  ),
+                                    const SizedBox(height: 10),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: ElevatedButton.icon(
+                                        onPressed: () async {
+                                          try {
+                                            // ── Change status to vehicle_received instead of deleting ──
+                                            await _updateAppointmentStatus(
+                                              docId,
+                                              'vehicle_received',
+                                            );
+                                            if (mounted) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  backgroundColor:
+                                                      AppColors.success,
+                                                  content: Text(
+                                                    'Vehicle handed over. Awaiting service charges.',
+                                                    style: GoogleFonts.jost(
+                                                      color: Colors.white,
+                                                    ),
+                                                  ),
+                                                ),
+                                              );
+                                            }
+                                          } catch (e) {
+                                            if (mounted) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text('Error: $e'),
+                                                ),
+                                              );
+                                            }
+                                          }
+                                        },
+                                        icon: const Icon(
+                                          Icons.car_repair,
+                                          size: 16,
+                                        ),
+                                        label: Text(
+                                          'Handed Over Vehicle',
+                                          style: GoogleFonts.jost(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppColors.gold,
+                                          foregroundColor: AppColors.obsidian,
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 12,
+                                          ),
+                                          elevation: 0,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 )
                               else if (status == 'rejected')
                                 Row(
@@ -598,6 +681,36 @@ class _AppointmentNotificationPageState
                                       ),
                                     ),
                                   ],
+                                )
+                              else if (status == 'vehicle_received')
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.gold.withOpacity(0.08),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: AppColors.gold.withOpacity(0.3),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.car_repair,
+                                        color: AppColors.gold,
+                                        size: 16,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Your vehicle is currently being serviced. You will receive a receipt shortly.',
+                                          style: GoogleFonts.jost(
+                                            color: AppColors.gold,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                             ],
                           ),

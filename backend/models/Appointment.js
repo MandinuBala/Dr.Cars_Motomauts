@@ -13,7 +13,7 @@ const appointmentSchema = new mongoose.Schema(
     serviceCenterUid: { type: String, index: true },
     status: {
       type: String,
-      enum: ["pending", "accepted", "rejected"],
+      enum: ["pending", "accepted", "rejected","vehicle_received"],
       default: "pending",
       index: true,
     },

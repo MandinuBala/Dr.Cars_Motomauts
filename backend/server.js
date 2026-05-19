@@ -397,6 +397,31 @@ app.get("/service-centers", async (req, res) => {
 app.post("/users", async (req, res) => {
   try {
     const payload = { ...req.body };
+    const email = payload.email || payload.Email;
+
+    // ── If email provided, find existing user first ──────────────
+    if (email) {
+      const existing = await User.findOne({
+        $or: [{ email }, { Email: email }],
+      });
+
+      if (existing) {
+        // Update their info but keep their original _id
+        const updated = await User.findByIdAndUpdate(
+          existing._id,
+          {
+            $set: {
+              Name: payload.Name || payload.name,
+              Address: payload.Address || payload.address,
+              Contact: payload.Contact || payload.contact,
+            },
+          },
+          { new: true }
+        );
+        return res.status(200).json(updated);
+      }
+    }
+
     const created = await User.create(payload);
     res.status(201).json(created);
   } catch (error) {
@@ -636,25 +661,34 @@ app.patch("/service-receipts/:id/status", async (req, res) => {
         vehicleNumber: updated.vehicleNumber,
       });
 
-      console.log("Vehicle found:", vehicle);
-      console.log("Vehicle userId:", vehicle?.userId);
-      console.log("Vehicle uid:", vehicle?.uid);
+      let userId = vehicle?.userId?.toString() || vehicle?.uid?.toString();
 
-      const userId = vehicle?.userId?.toString() || vehicle?.uid?.toString();
-      console.log("userId being saved to ServiceRecord:", userId);
+      // ── FALLBACK: if no userId on vehicle, search by email from user records ──
+      if (!userId) {
+        console.log("Vehicle has no userId — attempting email fallback");
+        // Nothing we can do without email — log clearly
+        console.log("Vehicle document:", vehicle);
+      }
 
       if (userId) {
+        // ── Also resolve through user lookup to get canonical _id ──────
+        const userFilters = [{ uid: userId }];
+        if (mongoose.Types.ObjectId.isValid(userId)) {
+          userFilters.push({ _id: userId });
+        }
+        const linkedUser = await User.findOne({ $or: userFilters });
+        if (linkedUser) {
+          userId = linkedUser._id.toString(); // use canonical _id
+        }
+
         const serviceCenterName =
           updated["Service Center Name"] || "Unknown Service Center";
-
         const services = updated.services
           ? Object.fromEntries(updated.services)
           : {};
 
-        console.log("Services to create records for:", services);
-
         for (const [serviceName, price] of Object.entries(services)) {
-          const record = await ServiceRecord.create({
+          await ServiceRecord.create({
             userId,
             currentMileage: updated.currentMileage,
             serviceMileage: updated.currentMileage,
@@ -663,10 +697,8 @@ app.patch("/service-receipts/:id/status", async (req, res) => {
             serviceType: serviceName,
             date: updated.createdAt || new Date(),
           });
-          console.log("Created ServiceRecord:", record);
         }
-      } else {
-        console.log("No userId found — vehicle may not be linked to a user");
+        console.log(`Created ${Object.keys(services).length} service records for userId: ${userId}`);
       }
     }
 
@@ -681,21 +713,40 @@ app.get("/service-records/user/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // Build all possible userId formats to match against
     const filters = [{ userId }];
 
-    // Look up the user to get all their ID variants
     const userFilters = [{ uid: userId }];
     if (mongoose.Types.ObjectId.isValid(userId)) {
       userFilters.push({ _id: userId });
     }
+
     const user = await User.findOne({ $or: userFilters });
     if (user) {
       filters.push({ userId: user._id.toString() });
       if (user.uid) filters.push({ userId: user.uid.toString() });
+
+      // ── Also search by email to catch mismatched shell users ──
+      if (user.email || user.Email) {
+        const email = user.email || user.Email;
+        const shellUsers = await User.find({
+          $or: [{ email }, { Email: email }],
+        });
+        for (const shellUser of shellUsers) {
+          filters.push({ userId: shellUser._id.toString() });
+          if (shellUser.uid) filters.push({ userId: shellUser.uid.toString() });
+        }
+      }
     }
 
-    const records = await ServiceRecord.find({ $or: filters }).sort({ createdAt: -1 });
+    // Remove duplicates
+    const uniqueFilters = filters.filter(
+      (f, i, arr) => arr.findIndex((x) => x.userId === f.userId) === i
+    );
+
+    const records = await ServiceRecord.find({
+      $or: uniqueFilters,
+    }).sort({ createdAt: -1 });
+
     console.log(`Records found for ${userId}:`, records.length);
     res.json(records);
   } catch (error) {
@@ -733,21 +784,40 @@ app.get("/service-records/user/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // Build all possible userId formats to match against
     const filters = [{ userId }];
 
-    // Look up the user to get all their ID variants
     const userFilters = [{ uid: userId }];
     if (mongoose.Types.ObjectId.isValid(userId)) {
       userFilters.push({ _id: userId });
     }
+
     const user = await User.findOne({ $or: userFilters });
     if (user) {
       filters.push({ userId: user._id.toString() });
       if (user.uid) filters.push({ userId: user.uid.toString() });
+
+      // ── Also search by email to catch mismatched shell users ──
+      if (user.email || user.Email) {
+        const email = user.email || user.Email;
+        const shellUsers = await User.find({
+          $or: [{ email }, { Email: email }],
+        });
+        for (const shellUser of shellUsers) {
+          filters.push({ userId: shellUser._id.toString() });
+          if (shellUser.uid) filters.push({ userId: shellUser.uid.toString() });
+        }
+      }
     }
 
-    const records = await ServiceRecord.find({ $or: filters }).sort({ createdAt: -1 });
+    // Remove duplicates
+    const uniqueFilters = filters.filter(
+      (f, i, arr) => arr.findIndex((x) => x.userId === f.userId) === i
+    );
+
+    const records = await ServiceRecord.find({
+      $or: uniqueFilters,
+    }).sort({ createdAt: -1 });
+
     console.log(`Records found for ${userId}:`, records.length);
     res.json(records);
   } catch (error) {

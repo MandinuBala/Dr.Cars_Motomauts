@@ -934,7 +934,7 @@ class _CustomerShellState extends State<CustomerShell> {
   @override
   Widget build(BuildContext context) {
     final screens = [
-      HomeScreen(client: widget.client),
+      HomeScreen(client: widget.client, tenantProfile: widget.tenantProfile),
       GarageScreen(client: widget.client),
       BookingScreen(client: widget.client),
       ServiceScreen(client: widget.client),
@@ -971,9 +971,14 @@ class _CustomerShellState extends State<CustomerShell> {
 }
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({required this.client, super.key});
+  const HomeScreen({
+    required this.client,
+    required this.tenantProfile,
+    super.key,
+  });
 
   final MotornautsGateway client;
+  final Map<String, dynamic> tenantProfile;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -1030,6 +1035,10 @@ class _HomeScreenState extends State<HomeScreen> {
       child: _MobileListView(
         children: [
           _HomeHeader(profile: _profile ?? const {}),
+          TenantBrandCard(
+            tenantProfile: widget.tenantProfile,
+            fallbackSlug: widget.client.config.tenantSlug,
+          ),
           if (_loading) const _LoadingBar(),
           if (_error != null)
             ErrorPanel(message: _error!, onRetry: _load)
@@ -1095,6 +1104,88 @@ class _HomeHeader extends StatelessWidget {
             child: Icon(Icons.notifications_none, color: colors.textSecondary),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class TenantBrandCard extends StatelessWidget {
+  const TenantBrandCard({
+    required this.tenantProfile,
+    required this.fallbackSlug,
+    super.key,
+  });
+
+  final Map<String, dynamic> tenantProfile;
+  final String fallbackSlug;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = MotornautsThemeColors.of(context);
+    final fields = _tenantProfileFields(tenantProfile);
+    final tenantName = _tenantDisplayName(tenantProfile, fallbackSlug);
+    final subtitle = valueText(fields, const [
+      'tagline',
+      'shortDescription',
+      'description',
+      'city',
+      'location',
+    ], fallback: '');
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: _cardBottomSpacing),
+      child: _SurfacePanel(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            _AvatarMonogram(label: tenantName, size: 52),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Service center',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: colors.textTertiary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    tenantName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (subtitle.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: colors.elevated,
+                border: Border.all(color: colors.borderDefault),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.storefront_outlined, color: colors.accent),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -5800,6 +5891,54 @@ Map<String, dynamic> _customerProfileFields(Map<String, dynamic> profile) {
     ...objectMap(fields['mailingAddress']),
     ...objectMap(fields['billingAddress']),
   };
+}
+
+Map<String, dynamic> _tenantProfileFields(Map<String, dynamic> profile) {
+  final tenant = objectMap(profile['tenant']);
+  return {
+    ...profile,
+    ...tenant,
+    ...objectMap(profile['brand']),
+    ...objectMap(profile['branding']),
+    ...objectMap(tenant['brand']),
+    ...objectMap(tenant['branding']),
+  };
+}
+
+String _tenantDisplayName(Map<String, dynamic> profile, String fallbackSlug) {
+  final fields = _tenantProfileFields(profile);
+  final name = valueText(fields, const [
+    'displayName',
+    'name',
+    'tenantName',
+    'serviceCenterName',
+    'businessName',
+    'brandName',
+  ], fallback: '');
+  if (name.isNotEmpty) {
+    return name;
+  }
+  final slug = valueText(fields, const ['slug'], fallback: fallbackSlug);
+  return _readableSlug(slug);
+}
+
+String _readableSlug(String value) {
+  final words =
+      value
+          .trim()
+          .split(RegExp(r'[-_\s]+'))
+          .where((word) => word.isNotEmpty)
+          .map((word) {
+            if (word.length == 1) {
+              return word.toUpperCase();
+            }
+            return '${word.substring(0, 1).toUpperCase()}${word.substring(1)}';
+          })
+          .toList();
+  if (words.isEmpty) {
+    return 'Service center';
+  }
+  return words.join(' ');
 }
 
 String _greetingFor(DateTime value) {

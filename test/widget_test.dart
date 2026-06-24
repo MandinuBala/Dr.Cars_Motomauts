@@ -195,6 +195,7 @@ void main() {
 
     expect(gateway.requestedOtp, isTrue);
     expect(gateway.verifiedOtp, isTrue);
+    expect(find.text('Demo Motors'), findsOneWidget);
     expect(find.text('OVERVIEW'), findsOneWidget);
     expect(find.text('Appointments'), findsOneWidget);
     expect(find.text('UPCOMING'), findsOneWidget);

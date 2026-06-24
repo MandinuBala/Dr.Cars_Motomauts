@@ -276,6 +276,11 @@ void main() {
     await _pumpUntilFound(tester, find.text('Profile'));
     await _tapVisible(tester, find.text('Profile').first);
     await _pumpUntilFound(tester, find.text('Save profile'));
+    expect(_fieldValue(tester, 'First name'), 'Ada');
+    expect(_fieldValue(tester, 'Last name'), 'Lovelace');
+    expect(_fieldValue(tester, 'Phone'), '+94770000000');
+    expect(_fieldValue(tester, 'Address line 1'), '42 Engine Lane');
+    expect(_fieldValue(tester, 'City'), 'Colombo');
     await _enterField(tester, 'Phone', '+94770000001');
     await _tapVisible(tester, find.text('Save profile'));
     expect(gateway.updatedProfile, isTrue);
@@ -527,12 +532,14 @@ class _SmokeGateway implements MotornautsGateway {
   @override
   Future<Map<String, dynamic>> getMyCustomerProfile() async {
     return const {
-      'tenantCustomerId': 'cus_1',
-      'firstName': 'Ada',
-      'lastName': 'Lovelace',
-      'email': 'ada@example.com',
-      'phone': '+94770000000',
-      'city': 'Colombo',
+      'customerProfile': {
+        'tenantCustomerId': 'cus_1',
+        'firstName': 'Ada',
+        'lastName': 'Lovelace',
+        'email': 'ada@example.com',
+        'phoneNumber': '+94770000000',
+        'address': {'addressLine1': '42 Engine Lane', 'city': 'Colombo'},
+      },
     };
   }
 
@@ -1013,6 +1020,11 @@ Finder _fieldWithLabel(String label) {
     }
     return false;
   });
+}
+
+String _fieldValue(WidgetTester tester, String label) {
+  final field = tester.widget<TextField>(_fieldWithLabel(label).first);
+  return field.controller?.text ?? '';
 }
 
 Future<void> _pumpUntilFound(

@@ -2054,7 +2054,11 @@ class _GarageScreenState extends State<GarageScreen> {
     if (profile == null) {
       return null;
     }
-    return objectId(profile, const ['tenantCustomerId', 'id', 'customerId']);
+    return objectId(_customerProfileFields(profile), const [
+      'tenantCustomerId',
+      'id',
+      'customerId',
+    ]);
   }
 
   @override
@@ -4142,20 +4146,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) {
         return;
       }
-      _firstNameController.text = valueText(profile, const [
+      _firstNameController.text = _profileFieldText(profile, const [
         'firstName',
-      ], fallback: '');
-      _lastNameController.text = valueText(profile, const [
+        'givenName',
+      ]);
+      _lastNameController.text = _profileFieldText(profile, const [
         'lastName',
-      ], fallback: '');
-      _phoneController.text = valueText(profile, const ['phone'], fallback: '');
-      _address1Controller.text = valueText(profile, const [
+        'familyName',
+        'surname',
+      ]);
+      _phoneController.text = _profileFieldText(profile, const [
+        'phone',
+        'phoneNumber',
+        'contactNumber',
+        'mobile',
+        'mobileNumber',
+      ]);
+      _address1Controller.text = _profileFieldText(profile, const [
         'addressLine1',
-      ], fallback: '');
-      _address2Controller.text = valueText(profile, const [
+        'line1',
+        'streetAddress',
+        'street',
+      ]);
+      _address2Controller.text = _profileFieldText(profile, const [
         'addressLine2',
-      ], fallback: '');
-      _cityController.text = valueText(profile, const ['city'], fallback: '');
+        'line2',
+        'suite',
+      ]);
+      _cityController.text = _profileFieldText(profile, const [
+        'city',
+        'locality',
+      ]);
       setState(() => _loading = false);
     } catch (error) {
       if (!mounted) {
@@ -5142,14 +5163,25 @@ class KeyValueList extends StatelessWidget {
 }
 
 Map<String, dynamic> _customerProfileFields(Map<String, dynamic> profile) {
-  return {
+  final fields = {
     ...profile,
     ...objectMap(profile['customer']),
     ...objectMap(profile['tenantCustomer']),
+    ...objectMap(profile['customerProfile']),
     ...objectMap(profile['profile']),
     ...objectMap(profile['user']),
     ...objectMap(profile['account']),
   };
+  return {
+    ...fields,
+    ...objectMap(fields['address']),
+    ...objectMap(fields['mailingAddress']),
+    ...objectMap(fields['billingAddress']),
+  };
+}
+
+String _profileFieldText(Map<String, dynamic> profile, List<String> keys) {
+  return valueText(_customerProfileFields(profile), keys, fallback: '');
 }
 
 _DetailRow? _detailRow({

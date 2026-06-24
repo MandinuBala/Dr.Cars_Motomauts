@@ -1510,6 +1510,443 @@ class _DetailRow {
   final IconData icon;
 }
 
+class VehicleSummaryOverview extends StatelessWidget {
+  const VehicleSummaryOverview({
+    required this.summary,
+    required this.vehicles,
+    super.key,
+  });
+
+  final Object? summary;
+  final List<Map<String, dynamic>> vehicles;
+
+  @override
+  Widget build(BuildContext context) {
+    final summaryMap = objectMap(summary);
+    final unavailable =
+        summaryMap['unavailable'] == true || summaryMap['stale'] == true;
+    final hasVehicleFallback = vehicles.isNotEmpty;
+    final metrics =
+        [
+          _metric(
+            label: 'Total',
+            icon: Icons.directions_car_outlined,
+            count:
+                _summaryCount(summaryMap, const [
+                  'totalVehicles',
+                  'vehicleCount',
+                  'vehicles',
+                  'active',
+                ]) ??
+                (hasVehicleFallback ? vehicles.length : null),
+          ),
+          _metric(
+            label: 'Approved',
+            icon: Icons.verified_outlined,
+            count:
+                _summaryCount(summaryMap, const [
+                  'approvedVehicles',
+                  'approved',
+                  'verifiedVehicles',
+                ]) ??
+                (hasVehicleFallback
+                    ? _vehicleStatusCount(vehicles, const ['APPROVED'])
+                    : null),
+          ),
+          _metric(
+            label: 'Pending',
+            icon: Icons.pending_actions_outlined,
+            count:
+                _summaryCount(summaryMap, const [
+                  'pendingVehicles',
+                  'pendingVerification',
+                  'pending',
+                ]) ??
+                (hasVehicleFallback
+                    ? _vehicleStatusCount(vehicles, const [
+                      'PENDING',
+                      'PENDING_REVIEW',
+                      'REJECTED',
+                    ])
+                    : null),
+          ),
+          _metric(
+            label: 'Documents',
+            icon: Icons.description_outlined,
+            count: _summaryCount(summaryMap, const [
+              'documents',
+              'vehicleDocuments',
+              'pendingDocuments',
+            ]),
+          ),
+        ].whereType<_DashboardMetricData>().toList();
+
+    if (metrics.isEmpty && unavailable) {
+      return const _InlineNotice(
+        icon: Icons.cloud_off_outlined,
+        message: 'Vehicle summary is unavailable.',
+      );
+    }
+    if (metrics.isEmpty) {
+      return const Text('No vehicle summary returned.');
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _DashboardMetricsGrid(metrics: metrics),
+        if (unavailable) ...[
+          const SizedBox(height: 12),
+          const _InlineNotice(
+            icon: Icons.info_outline,
+            message:
+                'Live vehicle summary is unavailable. Showing garage list totals.',
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class VehicleDetailOverview extends StatelessWidget {
+  const VehicleDetailOverview({required this.vehicle, super.key});
+
+  final Map<String, dynamic> vehicle;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = _detailRows([
+      _detailRow(
+        label: 'Registration',
+        icon: Icons.confirmation_number_outlined,
+        object: vehicle,
+        keys: const ['registrationNumber', 'plateNumber', 'vehicleNumber'],
+      ),
+      _detailValueRow(
+        label: 'Vehicle',
+        icon: Icons.directions_car_outlined,
+        value: _vehicleNameText(vehicle),
+      ),
+      _detailRow(
+        label: 'Mileage',
+        icon: Icons.speed_outlined,
+        object: vehicle,
+        keys: const ['currentMileage', 'mileage'],
+      ),
+      _detailValueRow(
+        label: 'Fuel',
+        icon: Icons.local_gas_station_outlined,
+        value: _enumField(vehicle, const ['fuelType']),
+      ),
+      _detailValueRow(
+        label: 'Transmission',
+        icon: Icons.settings_outlined,
+        value: _enumField(vehicle, const ['transmission']),
+      ),
+      _detailValueRow(
+        label: 'Ownership',
+        icon: Icons.assignment_ind_outlined,
+        value: _enumField(vehicle, const ['ownershipStatus']),
+      ),
+      _detailValueRow(
+        label: 'Status',
+        icon: Icons.verified_outlined,
+        value: _enumField(vehicle, const ['verificationStatus', 'status']),
+      ),
+    ]);
+    if (rows.isEmpty) {
+      return const Text('No vehicle details returned.');
+    }
+    return _DetailList(rows: rows);
+  }
+}
+
+class DocumentUploadPanel extends StatelessWidget {
+  const DocumentUploadPanel({
+    required this.documentType,
+    required this.uploading,
+    required this.onDocumentTypeChanged,
+    required this.onUpload,
+    super.key,
+  });
+
+  final String documentType;
+  final bool uploading;
+  final ValueChanged<String?> onDocumentTypeChanged;
+  final VoidCallback onUpload;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DropdownButtonFormField<String>(
+          initialValue: documentType,
+          isExpanded: true,
+          decoration: const InputDecoration(labelText: 'Document type'),
+          items:
+              _documentTypes
+                  .map(
+                    (value) => DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(
+                        _enumLabel(value),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  )
+                  .toList(),
+          onChanged: onDocumentTypeChanged,
+        ),
+        const SizedBox(height: 12),
+        FilledButton.icon(
+          onPressed: uploading ? null : onUpload,
+          icon:
+              uploading
+                  ? const _ButtonProgressIndicator()
+                  : const Icon(Icons.upload_file_outlined),
+          label: Text(uploading ? 'Uploading' : 'Choose file'),
+        ),
+      ],
+    );
+  }
+}
+
+class AppointmentDetailOverview extends StatelessWidget {
+  const AppointmentDetailOverview({required this.appointment, super.key});
+
+  final Map<String, dynamic> appointment;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = _detailRows([
+      _detailValueRow(
+        label: 'Status',
+        icon: Icons.flag_outlined,
+        value: _enumField(appointment, const ['status']),
+      ),
+      _detailValueRow(
+        label: 'Vehicle',
+        icon: Icons.directions_car_outlined,
+        value: _recordVehicleText(appointment),
+      ),
+      _detailValueRow(
+        label: 'Service',
+        icon: Icons.home_repair_service_outlined,
+        value: _recordServiceText(appointment),
+      ),
+      _detailValueRow(
+        label: 'Branch',
+        icon: Icons.store_outlined,
+        value: valueText(
+          objectMap(appointment['branch']),
+          const ['name'],
+          fallback: valueText(appointment, const ['branchName'], fallback: ''),
+        ),
+      ),
+      _detailValueRow(
+        label: 'Requested',
+        icon: Icons.event_outlined,
+        value: _dateText(
+          valueText(appointment, const [
+            'requestedStartAt',
+            'startsAt',
+          ], fallback: ''),
+        ),
+      ),
+      _detailValueRow(
+        label: 'Confirmed',
+        icon: Icons.event_available_outlined,
+        value: _dateText(
+          valueText(appointment, const [
+            'confirmedStartAt',
+            'rescheduledStartAt',
+          ], fallback: ''),
+        ),
+      ),
+    ]);
+    return _DetailList(rows: rows);
+  }
+}
+
+class RepairOrderOverview extends StatelessWidget {
+  const RepairOrderOverview({required this.repairOrder, super.key});
+
+  final Map<String, dynamic> repairOrder;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = _detailRows([
+      _detailValueRow(
+        label: 'Status',
+        icon: Icons.flag_outlined,
+        value: _enumField(repairOrder, const ['status', 'workflowStatus']),
+      ),
+      _detailValueRow(
+        label: 'Vehicle',
+        icon: Icons.directions_car_outlined,
+        value: _recordVehicleText(repairOrder),
+      ),
+      _detailValueRow(
+        label: 'Service',
+        icon: Icons.home_repair_service_outlined,
+        value: _recordServiceText(repairOrder),
+      ),
+      _detailValueRow(
+        label: 'Checked in',
+        icon: Icons.login_outlined,
+        value: _dateText(
+          valueText(repairOrder, const ['checkedInAt'], fallback: ''),
+        ),
+      ),
+      _detailValueRow(
+        label: 'Updated',
+        icon: Icons.update_outlined,
+        value: _dateText(
+          valueText(repairOrder, const [
+            'statusChangedAt',
+            'updatedAt',
+          ], fallback: ''),
+        ),
+      ),
+    ]);
+    return _DetailList(rows: rows);
+  }
+}
+
+class EstimateOverview extends StatelessWidget {
+  const EstimateOverview({required this.estimate, super.key});
+
+  final Map<String, dynamic> estimate;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = _detailRows([
+      _detailValueRow(
+        label: 'Status',
+        icon: Icons.flag_outlined,
+        value: _enumField(estimate, const ['status']),
+      ),
+      _detailRow(
+        label: 'Version',
+        icon: Icons.numbers_outlined,
+        object: estimate,
+        keys: const ['estimateVersion', 'version'],
+      ),
+      _detailValueRow(
+        label: 'Total',
+        icon: Icons.payments_outlined,
+        value: _moneyText(estimate),
+      ),
+      _detailValueRow(
+        label: 'Expires',
+        icon: Icons.event_busy_outlined,
+        value: _dateText(
+          valueText(estimate, const ['expiresAt', 'validUntil'], fallback: ''),
+        ),
+      ),
+    ]);
+    return _DetailList(rows: rows);
+  }
+}
+
+class EstimateLineItemSummary extends StatelessWidget {
+  const EstimateLineItemSummary({required this.item, super.key});
+
+  final Map<String, dynamic> item;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = _detailRows([
+      _detailRow(
+        label: 'Item',
+        icon: Icons.build_outlined,
+        object: item,
+        keys: const ['description', 'name', 'title'],
+      ),
+      _detailValueRow(
+        label: 'Amount',
+        icon: Icons.payments_outlined,
+        value: _moneyText(item),
+      ),
+      _detailValueRow(
+        label: 'Status',
+        icon: Icons.flag_outlined,
+        value: _enumField(item, const ['status']),
+      ),
+    ]);
+    return _DetailList(rows: rows);
+  }
+}
+
+class InvoiceOverview extends StatelessWidget {
+  const InvoiceOverview({required this.invoice, super.key});
+
+  final Map<String, dynamic> invoice;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = _detailRows([
+      _detailValueRow(
+        label: 'Status',
+        icon: Icons.flag_outlined,
+        value: _enumField(invoice, const ['status', 'paymentStatus']),
+      ),
+      _detailValueRow(
+        label: 'Amount',
+        icon: Icons.payments_outlined,
+        value: _moneyText(invoice),
+      ),
+      _detailValueRow(
+        label: 'Issued',
+        icon: Icons.event_note_outlined,
+        value: _dateText(
+          valueText(invoice, const ['issuedAt', 'createdAt'], fallback: ''),
+        ),
+      ),
+      _detailValueRow(
+        label: 'Due',
+        icon: Icons.event_busy_outlined,
+        value: _dateText(
+          valueText(invoice, const ['dueAt', 'dueDate'], fallback: ''),
+        ),
+      ),
+    ]);
+    return _DetailList(rows: rows);
+  }
+}
+
+class FeedbackContextSummary extends StatelessWidget {
+  const FeedbackContextSummary({required this.feedback, super.key});
+
+  final Map<String, dynamic> feedback;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = _detailRows([
+      _detailRow(
+        label: 'Service',
+        icon: Icons.receipt_long_outlined,
+        object: feedback,
+        keys: const ['repairOrderNumber', 'repairOrderId'],
+      ),
+      _detailValueRow(
+        label: 'Vehicle',
+        icon: Icons.directions_car_outlined,
+        value: _recordVehicleText(feedback),
+      ),
+      _detailRow(
+        label: 'Customer',
+        icon: Icons.person_outline,
+        object: feedback,
+        keys: const ['customerName', 'tenantCustomerId'],
+      ),
+    ]);
+    return _DetailList(rows: rows);
+  }
+}
+
 class GarageScreen extends StatefulWidget {
   const GarageScreen({required this.client, super.key});
 
@@ -1622,6 +2059,7 @@ class _GarageScreenState extends State<GarageScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final hasLoadedContent = _summary != null || _vehicles.isNotEmpty;
     return RefreshIndicator(
       onRefresh: _load,
       child: _MobileListView(
@@ -1639,10 +2077,15 @@ class _GarageScreenState extends State<GarageScreen> {
           if (_loading) const _LoadingBar(),
           if (_error != null)
             ErrorPanel(message: _error!, onRetry: _load)
+          else if (_loading && !hasLoadedContent)
+            const SizedBox.shrink()
           else ...[
             InfoCard(
               title: 'Vehicle summary',
-              child: JsonPreview(data: _summary),
+              child: VehicleSummaryOverview(
+                summary: _summary,
+                vehicles: _vehicles,
+              ),
             ),
             if (_vehicles.isEmpty)
               const EmptyState(
@@ -2164,45 +2607,19 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                   'registrationNumber',
                   'nickname',
                 ], fallback: 'Vehicle'),
-                child: KeyValueList(
-                  object: _vehicle ?? widget.summary,
-                  keys: const [
-                    'vehicleId',
-                    'make',
-                    'model',
-                    'year',
-                    'fuelType',
-                    'transmission',
-                    'currentMileage',
-                    'verificationStatus',
-                  ],
+                child: VehicleDetailOverview(
+                  vehicle: _vehicle ?? widget.summary,
                 ),
               ),
               InfoCard(
                 title: 'Upload document',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    DropdownButtonFormField<String>(
-                      initialValue: _documentType,
-                      decoration: const InputDecoration(
-                        labelText: 'Document type',
-                      ),
-                      items: _documentTypes.map(_dropdownItem).toList(),
-                      onChanged: (value) {
-                        setState(() => _documentType = value ?? _documentType);
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    FilledButton.icon(
-                      onPressed: _uploading ? null : _uploadDocument,
-                      icon:
-                          _uploading
-                              ? const _ButtonProgressIndicator()
-                              : const Icon(Icons.upload_file_outlined),
-                      label: const Text('Choose and upload'),
-                    ),
-                  ],
+                child: DocumentUploadPanel(
+                  documentType: _documentType,
+                  uploading: _uploading,
+                  onDocumentTypeChanged: (value) {
+                    setState(() => _documentType = value ?? _documentType);
+                  },
+                  onUpload: _uploadDocument,
                 ),
               ),
               Text('Documents', style: Theme.of(context).textTheme.titleMedium),
@@ -2217,15 +2634,8 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
               else
                 for (final document in _documents)
                   DataListTile(
-                    title: valueText(document, const [
-                      'documentType',
-                      'fileName',
-                    ]),
-                    subtitle: valueText(document, const [
-                      'status',
-                      'verificationStatus',
-                      'mimeType',
-                    ]),
+                    title: _documentTitle(document),
+                    subtitle: _documentSubtitle(document),
                     icon: Icons.description_outlined,
                     trailing: Wrap(
                       children: [
@@ -2766,7 +3176,7 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
               title: valueText(appointment, const [
                 'status',
               ], fallback: 'Appointment'),
-              child: JsonPreview(data: appointment),
+              child: AppointmentDetailOverview(appointment: appointment),
             ),
             if (actions.isNotEmpty)
               for (final action in actions)
@@ -3136,7 +3546,7 @@ class _RepairOrderDetailScreenState extends State<RepairOrderDetailScreen> {
                   'number',
                   'status',
                 ], fallback: 'Repair order'),
-                child: JsonPreview(data: _repairOrder),
+                child: RepairOrderOverview(repairOrder: _repairOrder!),
               ),
               FilledButton.icon(
                 onPressed: _downloadServiceHistory,
@@ -3374,7 +3784,7 @@ class _EstimateDetailScreenState extends State<EstimateDetailScreen> {
                 'estimateNumber',
                 'status',
               ], fallback: 'Estimate'),
-              child: JsonPreview(data: _estimate),
+              child: EstimateOverview(estimate: _estimate!),
             ),
             OutlinedButton.icon(
               onPressed: _downloadPdf,
@@ -3413,7 +3823,10 @@ class _EstimateDetailScreenState extends State<EstimateDetailScreen> {
   Widget _buildLineDecision(Map<String, dynamic> item) {
     final id = objectId(item, const ['estimateLineItemId', 'lineItemId', 'id']);
     if (id == null) {
-      return InfoCard(title: 'Line item', child: JsonPreview(data: item));
+      return InfoCard(
+        title: 'Line item',
+        child: EstimateLineItemSummary(item: item),
+      );
     }
     _notes.putIfAbsent(id, TextEditingController.new);
     final colors = MotornautsThemeColors.of(context);
@@ -3575,7 +3988,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                 'number',
                 'status',
               ], fallback: 'Invoice'),
-              child: JsonPreview(data: _invoice),
+              child: InvoiceOverview(invoice: _invoice!),
             ),
             FilledButton.icon(
               onPressed: _downloadPdf,
@@ -4381,7 +4794,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
             if (_feedback != null)
               InfoCard(
                 title: 'Service context',
-                child: JsonPreview(data: _feedback),
+                child: FeedbackContextSummary(feedback: _feedback!),
               ),
             const SizedBox(height: 12),
             Text('Rating', style: Theme.of(context).textTheme.titleMedium),
@@ -4728,25 +5141,6 @@ class KeyValueList extends StatelessWidget {
   }
 }
 
-class JsonPreview extends StatelessWidget {
-  const JsonPreview({required this.data, super.key});
-
-  final Object? data;
-
-  @override
-  Widget build(BuildContext context) {
-    if (data == null) {
-      return const Text('No data returned.');
-    }
-    const encoder = JsonEncoder.withIndent('  ');
-    final text = data is String ? data.toString() : encoder.convert(data);
-    return SelectableText(
-      text.length > 1800 ? '${text.substring(0, 1800)}\n...' : text,
-      style: Theme.of(context).textTheme.bodySmall?.copyWith(height: 1.35),
-    );
-  }
-}
-
 Map<String, dynamic> _customerProfileFields(Map<String, dynamic> profile) {
   return {
     ...profile,
@@ -4980,8 +5374,132 @@ String _joinSummaryParts(Iterable<String> parts, {String separator = ' - '}) {
       .join(separator);
 }
 
+List<_DetailRow> _detailRows(Iterable<_DetailRow?> rows) {
+  return rows.whereType<_DetailRow>().toList();
+}
+
+_DetailRow? _detailValueRow({
+  required String label,
+  required IconData icon,
+  required String value,
+}) {
+  final cleanValue = value.trim();
+  if (cleanValue.isEmpty || cleanValue == '-') {
+    return null;
+  }
+  return _DetailRow(label: label, value: cleanValue, icon: icon);
+}
+
+int _vehicleStatusCount(
+  List<Map<String, dynamic>> vehicles,
+  List<String> statuses,
+) {
+  final allowed = statuses.map((status) => status.toUpperCase()).toSet();
+  return vehicles.where((vehicle) {
+    final status =
+        valueText(vehicle, const [
+          'verificationStatus',
+          'status',
+        ], fallback: '').toUpperCase();
+    return allowed.contains(status);
+  }).length;
+}
+
+String _vehicleNameText(Map<String, dynamic> vehicle) {
+  final make = valueText(vehicle, const [
+    'make',
+    'selectedBrand',
+  ], fallback: '');
+  final model = valueText(vehicle, const [
+    'model',
+    'selectedModel',
+  ], fallback: '');
+  final year = valueText(vehicle, const ['year'], fallback: '');
+  final name = _joinSummaryParts([make, model, year], separator: ' ');
+  if (name.isNotEmpty) {
+    return name;
+  }
+  return valueText(vehicle, const ['nickname'], fallback: '');
+}
+
+String _enumField(Map<String, dynamic> object, List<String> keys) {
+  return _enumLabel(valueText(object, keys, fallback: ''));
+}
+
+String _enumLabel(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty || trimmed == '-') {
+    return '';
+  }
+  final enumPattern = RegExp(r'^[A-Z0-9_]+$');
+  if (!enumPattern.hasMatch(trimmed)) {
+    return trimmed;
+  }
+  final words =
+      trimmed
+          .split('_')
+          .where((part) => part.isNotEmpty)
+          .map((part) => part.toLowerCase())
+          .toList();
+  if (words.isEmpty) {
+    return '';
+  }
+  return [
+    '${words.first[0].toUpperCase()}${words.first.substring(1)}',
+    ...words.skip(1),
+  ].join(' ');
+}
+
+String _recordVehicleText(Map<String, dynamic> record) {
+  return _vehicleSummaryText(
+    objectMap(record['vehicle']),
+    fallback: valueText(record, const [
+      'vehicleRegistrationNumber',
+      'registrationNumber',
+      'vehicleNumber',
+      'vehicleId',
+    ], fallback: ''),
+  );
+}
+
+String _recordServiceText(Map<String, dynamic> record) {
+  return valueText(
+    objectMap(record['servicePackage']),
+    const ['name'],
+    fallback: valueText(
+      objectMap(record['service']),
+      const ['name'],
+      fallback: valueText(record, const [
+        'servicePackageName',
+        'serviceName',
+        'packageName',
+      ], fallback: ''),
+    ),
+  );
+}
+
+String _documentTitle(Map<String, dynamic> document) {
+  final documentType = valueText(document, const [
+    'documentType',
+  ], fallback: '');
+  if (documentType.isNotEmpty) {
+    return _enumLabel(documentType);
+  }
+  return valueText(document, const ['fileName', 'name'], fallback: 'Document');
+}
+
+String _documentSubtitle(Map<String, dynamic> document) {
+  final fileName = valueText(document, const [
+    'fileName',
+    'name',
+  ], fallback: '');
+  final status = _enumField(document, const ['status', 'verificationStatus']);
+  final mimeType = valueText(document, const ['mimeType'], fallback: '');
+  return _joinSummaryParts([fileName, status, mimeType]);
+}
+
 DropdownMenuItem<String> _dropdownItem(String value) {
-  return DropdownMenuItem(value: value, child: Text(value));
+  return DropdownMenuItem(value: value, child: Text(_enumLabel(value)));
 }
 
 Widget _idDropdown({

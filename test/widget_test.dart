@@ -186,9 +186,22 @@ void main() {
 
     await _tapVisible(tester, find.text('Garage'));
     await _pumpUntilFound(tester, find.text('Vehicle summary'));
+    expect(find.text('Total'), findsOneWidget);
+    expect(find.text('Approved'), findsOneWidget);
+    expect(
+      find.text(
+        'Live vehicle summary is unavailable. Showing garage list totals.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('"unavailable"'), findsNothing);
     expect(find.text('CAB-1234'), findsOneWidget);
     await _tapVisible(tester, find.text('CAB-1234'));
     await _pumpUntilFound(tester, find.text('Upload document'));
+    expect(find.text('Registration certificate'), findsOneWidget);
+    expect(find.text('Choose file'), findsOneWidget);
+    expect(find.text('REGISTRATION_CERTIFICATE'), findsNothing);
+    expect(find.textContaining('"vehicleId"'), findsNothing);
     await _scrollUntilVisible(tester, find.byTooltip('View'));
     await _tapVisible(tester, find.byTooltip('View').first);
     expect(gateway.viewedDocument, isTrue);
@@ -224,6 +237,7 @@ void main() {
     await _pumpUntilFound(tester, find.text('2026-07-02T09:00:00Z'));
     await _tapVisible(tester, find.text('2026-07-02T09:00:00Z'));
     await _pumpUntilFound(tester, find.text('Appointment'));
+    expect(find.textContaining('"appointmentId"'), findsNothing);
     await _tapVisible(tester, find.text('Cancel appointment'));
     expect(gateway.transitionedAppointment, isTrue);
     await _goBack(tester);
@@ -233,10 +247,12 @@ void main() {
     await _pumpUntilFound(tester, find.text('Repair orders'));
     await _tapVisible(tester, find.text('RO-1001'));
     await _pumpUntilFound(tester, find.text('Repair order'));
+    expect(find.textContaining('"repairOrderId"'), findsNothing);
     await _tapVisible(tester, find.text('Open service-history PDF'));
     expect(gateway.requestedServiceHistoryPdf, isTrue);
     await _tapVisible(tester, find.text('EST-1001'));
     await _pumpUntilFound(tester, find.text('Estimate'));
+    expect(find.textContaining('"estimateId"'), findsNothing);
     await _tapVisible(tester, find.text('Open estimate PDF'));
     expect(gateway.requestedEstimatePdf, isTrue);
     await _tapVisible(tester, find.text('Approve'));
@@ -250,6 +266,7 @@ void main() {
 
     await _tapVisible(tester, find.text('INV-1001'));
     await _pumpUntilFound(tester, find.text('Invoice'));
+    expect(find.textContaining('"invoiceId"'), findsNothing);
     await _tapVisible(tester, find.text('Open invoice PDF'));
     expect(gateway.requestedInvoicePdf, isTrue);
     await _goBack(tester);
@@ -285,6 +302,7 @@ void main() {
     );
     await _tapVisible(tester, find.text('Open'));
     await _pumpUntilFound(tester, find.text('Feedback'));
+    expect(find.textContaining('"repairOrderNumber"'), findsNothing);
     await _enterField(tester, 'Comment', 'Good sample smoke test service');
     await _tapVisible(tester, find.text('Submit feedback'));
     expect(gateway.submittedFeedback, isTrue);
@@ -583,7 +601,11 @@ class _SmokeGateway implements MotornautsGateway {
 
   @override
   Future<Object?> getVehicleSummary() async {
-    return const {'active': 1, 'pendingDocuments': 0};
+    throw MotornautsApiException(
+      type: MotornautsErrorType.notFound,
+      statusCode: 404,
+      message: 'The requested resource is not available.',
+    );
   }
 
   @override

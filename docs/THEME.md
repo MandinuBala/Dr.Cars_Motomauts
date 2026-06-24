@@ -15,56 +15,56 @@ This is the compact source of truth for Motornauts Flutter styling on iOS and An
 ## Dark Palette
 
 ```css
---bg-page: #000000;
---bg-subtle: #0a0a0c;
---bg-surface: #101014;
---bg-elevated: #18181d;
+--bg-page: #0b0b0c;
+--bg-subtle: #111113;
+--bg-surface: #171719;
+--bg-elevated: #202024;
 --bg-overlay: rgba(0, 0, 0, 0.75);
 
---text-primary: #f5f7fa;
---text-secondary: #a8b0bc;
---text-tertiary: #6c7480;
---text-on-accent: #001318;
+--text-primary: #f6f1e8;
+--text-secondary: #a9a196;
+--text-tertiary: #746d65;
+--text-on-accent: #120b03;
 
 --border-subtle: rgba(255, 255, 255, 0.06);
 --border-default: rgba(255, 255, 255, 0.10);
 --border-strong: rgba(255, 255, 255, 0.18);
 
---accent: #00e5ff;
---accent-hover: #33ecff;
---accent-muted: rgba(0, 229, 255, 0.12);
---accent-subtle: rgba(0, 229, 255, 0.06);
---ring-focus: #00e5ff;
+--accent: #d98a21;
+--accent-hover: #f0a23a;
+--accent-muted: rgba(217, 138, 33, 0.16);
+--accent-subtle: rgba(217, 138, 33, 0.08);
+--ring-focus: #d98a21;
 
---accent-secondary: #ff2d95;
---accent-secondary-muted: rgba(255, 45, 149, 0.12);
+--accent-secondary: #6f767f;
+--accent-secondary-muted: rgba(111, 118, 127, 0.12);
 ```
 
-Use pure black for the app base in dark mode. Use cyan for primary action, focus, selected navigation, and active controls. Use magenta only as secondary emphasis, never as a competing product mode.
+Use charcoal for the app base in dark mode. Use amber for primary action, focus, selected navigation, and active controls. Use neutral chrome as secondary emphasis, never as a competing product mode.
 
 ## Light Palette
 
 ```css
---mobile-bg: #fafaf7;
+--mobile-bg: #f7f3ea;
 --mobile-bg-elevated: #ffffff;
---mobile-bg-sunken: #f4f3ee;
---mobile-surface: #ffffff;
---mobile-surface-muted: #f7f6f1;
---mobile-ink: #0b0e14;
---mobile-ink-soft: #4a4f58;
---mobile-ink-faint: #7a7f87;
---mobile-line: #ecece6;
---mobile-line-strong: #d8d8d0;
---mobile-accent: #ff5a1f;
---mobile-accent-hover: #e54a14;
---mobile-accent-soft: #ffe6d9;
---mobile-accent-tint: #fff3eb;
---mobile-accent-deep: #1e2a4a;
---mobile-accent-deep-soft: #e7eaf3;
---mobile-focus: #ff5a1f;
+--mobile-bg-sunken: #ede6da;
+--mobile-surface: #fffcf5;
+--mobile-surface-muted: #ede6da;
+--mobile-ink: #15120e;
+--mobile-ink-soft: #5d554b;
+--mobile-ink-faint: #8c8276;
+--mobile-line: #ddd2c2;
+--mobile-line-strong: #cbbba5;
+--mobile-accent: #a65f12;
+--mobile-accent-hover: #8f4e0b;
+--mobile-accent-soft: rgba(166, 95, 18, 0.15);
+--mobile-accent-tint: rgba(166, 95, 18, 0.08);
+--mobile-accent-deep: #383b40;
+--mobile-accent-deep-soft: rgba(56, 59, 64, 0.12);
+--mobile-focus: #a65f12;
 ```
 
-Light mode should feel clean and paper-like. Keep surfaces calm, borders visible, and orange reserved for primary actions, selected states, and focus.
+Light mode should feel clean and paper-like. Keep surfaces warm, borders visible, and amber reserved for primary actions, selected states, and focus.
 
 ## Status And Effects
 
@@ -74,13 +74,13 @@ Light mode should feel clean and paper-like. Keep surfaces calm, borders visible
 --status-danger: #ff3d55;
 --status-info: #5bc8ff;
 
---glow-accent: 0 0 0 3px rgba(0, 229, 255, 0.30);
+--glow-accent: 0 0 0 3px rgba(217, 138, 33, 0.30);
 --glow-danger: 0 0 0 3px rgba(255, 61, 85, 0.30);
 --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.60);
 --shadow-lg: 0 18px 36px -16px rgba(0, 0, 0, 0.75);
 ```
 
-Status fills should use low-alpha backgrounds around `0.10` to `0.14` and borders around `0.35` to `0.45`. Do not place white text on cyan, amber, or bright green accents; use dark foreground text or a surface text token with verified contrast.
+Status fills should use low-alpha backgrounds around `0.10` to `0.14` and borders around `0.35` to `0.45`. Do not place white text on amber or bright green accents; use dark foreground text or a surface text token with verified contrast.
 
 ## Flutter Application
 

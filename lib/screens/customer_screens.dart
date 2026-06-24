@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -1026,23 +1027,74 @@ class _HomeScreenState extends State<HomeScreen> {
       onRefresh: _load,
       child: _MobileListView(
         children: [
-          HeaderRow(title: 'Home', onRefresh: _load),
+          _HomeHeader(profile: _profile ?? const {}),
           if (_loading) const _LoadingBar(),
           if (_error != null)
             ErrorPanel(message: _error!, onRetry: _load)
           else ...[
-            InfoCard(
-              title: 'Customer profile',
-              child: CustomerProfileSummary(
-                profile: _profile ?? const {},
-                dashboardSummary: _summary,
-              ),
+            CustomerProfileSummary(
+              profile: _profile ?? const {},
+              dashboardSummary: _summary,
             ),
-            InfoCard(
-              title: 'Dashboard summary',
-              child: DashboardSummary(data: _summary),
-            ),
+            DashboardSummary(data: _summary),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeHeader extends StatelessWidget {
+  const _HomeHeader({required this.profile});
+
+  final Map<String, dynamic> profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = MotornautsThemeColors.of(context);
+    final customer = _customerProfileFields(profile);
+    final firstName = valueText(customer, const [
+      'firstName',
+      'givenName',
+    ], fallback: 'Customer');
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _greetingFor(DateTime.now()),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelMedium?.copyWith(color: colors.textTertiary),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$firstName 👋',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: colors.elevated,
+              border: Border.all(color: colors.borderDefault),
+              borderRadius: BorderRadius.circular(99),
+            ),
+            child: Icon(Icons.notifications_none, color: colors.textSecondary),
+          ),
         ],
       ),
     );
@@ -1075,44 +1127,49 @@ class CustomerProfileSummary extends StatelessWidget {
           firstName,
           lastName,
         ].where((part) => part.trim().isNotEmpty).join(' ').trim();
-    final rows =
-        <_DetailRow?>[
-          if (fullName.isNotEmpty)
-            _DetailRow(
-              label: 'Name',
-              value: fullName,
-              icon: Icons.person_outline,
-            ),
-          _detailRow(
-            label: 'Email',
-            icon: Icons.mail_outline,
-            object: customer,
-            keys: const ['email', 'emailAddress'],
-          ),
-          _detailRow(
-            label: 'Phone',
-            icon: Icons.phone_outlined,
-            object: customer,
-            keys: const ['phone', 'phoneNumber', 'contactNumber'],
-          ),
-          _detailRow(
-            label: 'City',
-            icon: Icons.location_city_outlined,
-            object: customer,
-            keys: const ['city'],
-          ),
-          if (customerId.isNotEmpty)
-            _DetailRow(
-              label: 'Customer ID',
-              value: customerId,
-              icon: Icons.badge_outlined,
-            ),
-        ].whereType<_DetailRow>().toList();
+    final displayName = fullName.isEmpty ? 'Customer profile' : fullName;
+    final email = valueText(customer, const [
+      'email',
+      'emailAddress',
+    ], fallback: '');
 
-    if (rows.isEmpty) {
-      return const Text('No customer profile details returned.');
-    }
-    return _DetailList(rows: rows);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: _cardBottomSpacing),
+      child: _SurfacePanel(
+        child: Row(
+          children: [
+            _AvatarMonogram(label: displayName, size: 56),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  if (email.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      email,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                  if (customerId.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    _CustomerIdChip(customerId: customerId),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -1136,51 +1193,59 @@ class DashboardSummary extends StatelessWidget {
       );
     }
 
-    final metrics =
-        [
-          _metric(
-            label: 'Appointments',
-            icon: Icons.event_available_outlined,
-            count: _summaryCount(summary, const [
-              'upcomingAppointments',
-              'openAppointments',
-              'appointments',
-            ]),
-          ),
-          _metric(
-            label: 'Vehicles',
-            icon: Icons.directions_car_outlined,
-            count: _summaryCount(summary, const ['vehicles', 'vehicleSummary']),
-          ),
-          _metric(
-            label: 'Service jobs',
-            icon: Icons.build_circle_outlined,
-            count: _summaryCount(summary, const [
-              'activeServiceJobs',
-              'repairOrders',
-              'activeRepairOrders',
-            ]),
-          ),
-          _metric(
-            label: 'Approvals',
-            icon: Icons.fact_check_outlined,
-            count: _summaryCount(summary, const [
-              'pendingApprovals',
-              'pendingApp',
-              'pendingEstimates',
-              'pendingApprovalRequests',
-            ]),
-          ),
-          _metric(
-            label: 'Payments',
-            icon: Icons.payments_outlined,
-            count: _summaryCount(summary, const [
-              'pendingPayments',
-              'unpaidInvoices',
-              'invoicesDue',
-            ]),
-          ),
-        ].whereType<_DashboardMetricData>().toList();
+    final appointmentCount =
+        _summaryCount(summary, const [
+          'upcomingAppointments',
+          'openAppointments',
+          'appointments',
+        ]) ??
+        0;
+    final vehicleCount =
+        _summaryCount(summary, const ['vehicles', 'vehicleSummary']) ?? 0;
+    final serviceJobCount =
+        _summaryCount(summary, const [
+          'activeServiceJobs',
+          'repairOrders',
+          'activeRepairOrders',
+        ]) ??
+        0;
+    final approvalCount =
+        _summaryCount(summary, const [
+          'pendingApprovals',
+          'pendingApp',
+          'pendingEstimates',
+          'pendingApprovalRequests',
+        ]) ??
+        0;
+    final metrics = [
+      _DashboardMetricData(
+        label: 'Appointments',
+        icon: Icons.event_available_outlined,
+        count: appointmentCount,
+      ),
+      _DashboardMetricData(
+        label: 'Vehicles',
+        icon: Icons.directions_car_outlined,
+        count: vehicleCount,
+      ),
+      _DashboardMetricData(
+        label: 'Service jobs',
+        icon: Icons.build_circle_outlined,
+        count: serviceJobCount,
+      ),
+      _DashboardMetricData(
+        label: 'Approvals',
+        icon: Icons.fact_check_outlined,
+        count: approvalCount,
+        muted: approvalCount == 0,
+      ),
+    ];
+
+    final appointments = _summaryItems(summary, const [
+      'upcomingAppointments',
+      'openAppointments',
+      'appointments',
+    ]);
 
     final sections =
         [
@@ -1227,17 +1292,26 @@ class DashboardSummary extends StatelessWidget {
           ),
         ].where((section) => section.items.isNotEmpty).toList();
 
-    if (metrics.isEmpty && sections.isEmpty) {
+    if (metrics.isEmpty && sections.isEmpty && appointments.isEmpty) {
       return const Text('No active customer activity returned.');
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (metrics.isNotEmpty) _DashboardMetricsGrid(metrics: metrics),
-        if (metrics.isNotEmpty && sections.isNotEmpty)
-          const SizedBox(height: 16),
-        for (final section in sections) _DashboardSection(section: section),
+        const _SectionDivider(label: 'Overview'),
+        _DashboardMetricsGrid(metrics: metrics),
+        const SizedBox(height: 16),
+        if (appointments.isNotEmpty) ...[
+          const _SectionDivider(label: 'Upcoming'),
+          for (final appointment in appointments.take(2))
+            _UpcomingAppointmentCard(appointment: appointment),
+          const SizedBox(height: 4),
+        ],
+        for (final section in sections.where(
+          (section) => section.title != 'Upcoming appointments',
+        ))
+          _DashboardSection(section: section),
       ],
     );
   }
@@ -1261,7 +1335,7 @@ class _DashboardMetricsGrid extends StatelessWidget {
             crossAxisCount: columns,
             crossAxisSpacing: 8,
             mainAxisSpacing: 8,
-            mainAxisExtent: 82,
+            mainAxisExtent: 104,
           ),
           itemBuilder: (context, index) {
             return _DashboardMetric(metric: metrics[index]);
@@ -1280,32 +1354,166 @@ class _DashboardMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = MotornautsThemeColors.of(context);
+    final foreground = metric.muted ? colors.textTertiary : colors.accent;
+    final borderColor =
+        metric.muted ? colors.borderDefault : colors.borderStrong;
+    final fillColor = metric.muted ? colors.elevated : colors.accentSubtle;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colors.accentSubtle,
-        border: Border.all(color: colors.borderDefault),
+        color: fillColor,
+        border: Border.all(color: borderColor),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Row(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Icon(metric.icon, color: colors.accent),
-            const SizedBox(width: 8),
-            Expanded(
+            Icon(metric.icon, color: foreground, size: 20),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  metric.count.toString(),
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: metric.muted ? colors.textTertiary : null,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  metric.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: metric.muted ? colors.textTertiary : null,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _UpcomingAppointmentCard extends StatelessWidget {
+  const _UpcomingAppointmentCard({required this.appointment});
+
+  final Map<String, dynamic> appointment;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = MotornautsThemeColors.of(context);
+    final vehicle = objectMap(appointment['vehicle']);
+    final servicePackage = objectMap(appointment['servicePackage']);
+    final startsAt = _dateTimeFromKeys(appointment, const [
+      'confirmedStartAt',
+      'rescheduledStartAt',
+      'requestedStartAt',
+      'startsAt',
+    ]);
+    final serviceName = valueText(
+      servicePackage,
+      const ['name'],
+      fallback: valueText(appointment, const [
+        'servicePackageName',
+        'serviceName',
+      ], fallback: 'Service'),
+    );
+    final branchName = valueText(
+      objectMap(appointment['branch']),
+      const ['name'],
+      fallback: valueText(appointment, const ['branchName'], fallback: ''),
+    );
+    final vehicleText = _vehicleSummaryText(
+      vehicle,
+      fallback: valueText(appointment, const [
+        'vehicleRegistrationNumber',
+        'registrationNumber',
+        'vehicleId',
+      ], fallback: 'Vehicle'),
+    );
+    final status = valueText(appointment, const ['status'], fallback: '');
+    final localStart = startsAt?.toLocal();
+    final timeText =
+        localStart == null ? '' : DateFormat('h:mm a').format(localStart);
+    final monthText =
+        localStart == null
+            ? '--'
+            : DateFormat('MMM').format(localStart).toUpperCase();
+    final dayText =
+        localStart == null ? '--' : DateFormat('d').format(localStart);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: _tileBottomSpacing),
+      child: _SurfacePanel(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 54,
+              height: 64,
+              decoration: BoxDecoration(
+                color: colors.accentSubtle,
+                border: Border.all(color: colors.statusBorder(colors.accent)),
+                borderRadius: BorderRadius.circular(8),
+              ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    metric.count.toString(),
-                    style: Theme.of(context).textTheme.titleLarge,
+                    dayText,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: colors.accent,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   Text(
-                    metric.label,
+                    monthText,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: colors.accent,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          serviceName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ),
+                      if (status.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        _StatusBadge(status),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _joinSummaryParts([timeText, branchName], separator: ' - '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelMedium,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 10),
+                  _Pill(
+                    icon: Icons.directions_car_outlined,
+                    label: vehicleText,
                   ),
                 ],
               ),
@@ -1324,27 +1532,30 @@ class _DashboardSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = MotornautsThemeColors.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(section.icon, size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  section.title,
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
-              ),
-            ],
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: EdgeInsets.zero,
+          childrenPadding: EdgeInsets.zero,
+          iconColor: colors.accent,
+          collapsedIconColor: colors.textSecondary,
+          leading: Icon(section.icon, size: 20, color: colors.accent),
+          title: Text(
+            section.title,
+            style: Theme.of(context).textTheme.titleSmall,
           ),
-          const SizedBox(height: 8),
-          for (final item in section.items.take(3))
-            _DashboardRecord(record: section.itemBuilder(item)),
-        ],
+          subtitle: Text(
+            '${section.items.length} item${section.items.length == 1 ? '' : 's'}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          children: [
+            for (final item in section.items.take(3))
+              _DashboardRecord(record: section.itemBuilder(item)),
+          ],
+        ),
       ),
     );
   }
@@ -1459,16 +1670,182 @@ class _InlineNotice extends StatelessWidget {
   }
 }
 
+class _SurfacePanel extends StatelessWidget {
+  const _SurfacePanel({
+    required this.child,
+    this.padding = const EdgeInsets.all(14),
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = MotornautsThemeColors.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border.all(color: colors.borderDefault),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(padding: padding, child: child),
+    );
+  }
+}
+
+class _AvatarMonogram extends StatelessWidget {
+  const _AvatarMonogram({required this.label, this.size = 72});
+
+  final String label;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = MotornautsThemeColors.of(context);
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: colors.accentSubtle,
+        border: Border.all(color: colors.statusBorder(colors.accent)),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Text(
+        _initialsFor(label),
+        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+          color: colors.accent,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _CustomerIdChip extends StatelessWidget {
+  const _CustomerIdChip({required this.customerId});
+
+  final String customerId;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = MotornautsThemeColors.of(context);
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () async {
+        await Clipboard.setData(ClipboardData(text: customerId));
+        if (context.mounted) {
+          _showSnack(context, 'Customer ID copied.');
+        }
+      },
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 220),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        decoration: BoxDecoration(
+          color: colors.elevated,
+          border: Border.all(color: colors.borderDefault),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.copy_outlined, size: 14, color: colors.textTertiary),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                _truncateMiddle(customerId, maxLength: 28),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  fontFamily: 'monospace',
+                  color: colors.textTertiary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionDivider extends StatelessWidget {
+  const _SectionDivider({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = MotornautsThemeColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Text(
+            label.toUpperCase(),
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: colors.textTertiary,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Divider(color: colors.borderDefault)),
+        ],
+      ),
+    );
+  }
+}
+
+class _Pill extends StatelessWidget {
+  const _Pill({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = MotornautsThemeColors.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: colors.accentSubtle,
+        border: Border.all(color: colors.statusBorder(colors.accent)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: colors.accent),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: colors.accent,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DashboardMetricData {
   const _DashboardMetricData({
     required this.label,
     required this.icon,
     required this.count,
+    this.muted = false,
   });
 
   final String label;
   final IconData icon;
   final int count;
+  final bool muted;
 }
 
 class _DashboardSectionData {
@@ -2686,7 +3063,6 @@ class _BookingScreenState extends State<BookingScreen> {
   Map<String, dynamic>? _selectedSlot;
   DateTime _requestedAt = DateTime.now().add(const Duration(days: 1));
   final TextEditingController _notesController = TextEditingController();
-  final TextEditingController _complaintsController = TextEditingController();
   final TextEditingController _mileageController = TextEditingController();
   String? _submitKey;
   bool _loading = true;
@@ -2703,9 +3079,23 @@ class _BookingScreenState extends State<BookingScreen> {
   @override
   void dispose() {
     _notesController.dispose();
-    _complaintsController.dispose();
     _mileageController.dispose();
     super.dispose();
+  }
+
+  int get _bookingProgressStepCount {
+    var count = 0;
+    if (_vehicleId != null && _branchId != null) {
+      count += 1;
+    }
+    if (_servicePackageId != null) {
+      count += 1;
+    }
+    if (_mileageController.text.trim().isNotEmpty ||
+        _notesController.text.trim().isNotEmpty) {
+      count += 1;
+    }
+    return count;
   }
 
   Future<void> _load() async {
@@ -2877,7 +3267,7 @@ class _BookingScreenState extends State<BookingScreen> {
           requestedEndAt: end,
           mileageAtBooking: int.tryParse(_mileageController.text.trim()),
           customerNotes: _notesController.text.trim(),
-          complaints: _complaintsController.text.trim(),
+          complaints: null,
           idempotencyKey: _submitKey!,
         ),
       );
@@ -2908,30 +3298,38 @@ class _BookingScreenState extends State<BookingScreen> {
       onRefresh: _load,
       child: _MobileListView(
         children: [
-          HeaderRow(title: 'Booking', onRefresh: _load),
+          HeaderRow(title: 'New booking', onRefresh: _load),
           if (_loading) const _LoadingBar(),
           if (_error != null)
             ErrorPanel(message: _error!, onRetry: _load)
           else ...[
             InfoCard(
-              title: 'New appointment',
+              title: 'Request details',
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _idDropdown(
+                  _BookingProgress(activeSteps: _bookingProgressStepCount),
+                  const SizedBox(height: 18),
+                  const _SectionDivider(label: 'Vehicle & location'),
+                  _richIdDropdown(
                     label: 'Vehicle',
+                    icon: Icons.directions_car_outlined,
                     value: _vehicleId,
                     items: _vehicles,
                     idKeys: const ['vehicleId', 'id'],
                     labelKeys: const ['registrationNumber', 'nickname'],
+                    subtitleBuilder: _vehicleOptionSubtitle,
                     onChanged: (value) => setState(() => _vehicleId = value),
                   ),
                   const SizedBox(height: 12),
-                  _idDropdown(
+                  _richIdDropdown(
                     label: 'Branch',
+                    icon: Icons.store_outlined,
                     value: _branchId,
                     items: _branches,
                     idKeys: const ['branchId', 'id'],
                     labelKeys: const ['name', 'displayName', 'branchName'],
+                    subtitleBuilder: _branchOptionSubtitle,
                     onChanged: (value) {
                       setState(() {
                         _branchId = value;
@@ -2940,13 +3338,16 @@ class _BookingScreenState extends State<BookingScreen> {
                       });
                     },
                   ),
-                  const SizedBox(height: 12),
-                  _idDropdown(
+                  const SizedBox(height: 18),
+                  const _SectionDivider(label: 'Service'),
+                  _richIdDropdown(
                     label: 'Service package',
+                    icon: Icons.home_repair_service_outlined,
                     value: _servicePackageId,
                     items: _packages,
                     idKeys: const ['servicePackageId', 'id'],
                     labelKeys: const ['name', 'displayName', 'serviceName'],
+                    subtitleBuilder: _servicePackageOptionSubtitle,
                     onChanged: (value) {
                       setState(() {
                         _servicePackageId = value;
@@ -2956,33 +3357,7 @@ class _BookingScreenState extends State<BookingScreen> {
                     },
                   ),
                   const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: _pickRequestedAt,
-                    icon: const Icon(Icons.schedule_outlined),
-                    label: Text(
-                      DateFormat('yyyy-MM-dd HH:mm').format(_requestedAt),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _mileageController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Mileage at booking',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _complaintsController,
-                    maxLines: 2,
-                    decoration: const InputDecoration(labelText: 'Complaints'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _notesController,
-                    maxLines: 2,
-                    decoration: const InputDecoration(labelText: 'Notes'),
-                  ),
+                  _DateTimeBadge(value: _requestedAt, onTap: _pickRequestedAt),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
                     onPressed:
@@ -2999,6 +3374,7 @@ class _BookingScreenState extends State<BookingScreen> {
                       initialValue: _selectedSlot,
                       decoration: const InputDecoration(
                         labelText: 'Available slot',
+                        prefixIcon: Icon(Icons.event_available_outlined),
                       ),
                       items:
                           _slots
@@ -3019,6 +3395,30 @@ class _BookingScreenState extends State<BookingScreen> {
                       onChanged: (slot) => setState(() => _selectedSlot = slot),
                     ),
                   ],
+                  const SizedBox(height: 18),
+                  const _SectionDivider(label: 'Details'),
+                  TextField(
+                    controller: _mileageController,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    onChanged: (_) => setState(() {}),
+                    decoration: const InputDecoration(
+                      labelText: 'Mileage at booking',
+                      hintText: 'e.g. 24,500 km',
+                      prefixIcon: Icon(Icons.speed_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _notesController,
+                    maxLines: 3,
+                    onChanged: (_) => setState(() {}),
+                    decoration: const InputDecoration(
+                      labelText: 'Notes / complaints',
+                      hintText: 'Describe symptoms or service requests',
+                      prefixIcon: Icon(Icons.notes_outlined),
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   FilledButton.icon(
                     onPressed: _submitting ? null : _submitBooking,
@@ -3086,6 +3486,86 @@ class _BookingScreenState extends State<BookingScreen> {
       return;
     }
     await _load();
+  }
+}
+
+class _BookingProgress extends StatelessWidget {
+  const _BookingProgress({required this.activeSteps});
+
+  final int activeSteps;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = MotornautsThemeColors.of(context);
+    return Row(
+      children: [
+        for (var index = 0; index < 3; index += 1) ...[
+          Expanded(
+            child: Container(
+              height: 4,
+              decoration: BoxDecoration(
+                color:
+                    index < activeSteps ? colors.accent : colors.borderDefault,
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+          ),
+          if (index != 2) const SizedBox(width: 6),
+        ],
+      ],
+    );
+  }
+}
+
+class _DateTimeBadge extends StatelessWidget {
+  const _DateTimeBadge({required this.value, required this.onTap});
+
+  final DateTime value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = MotornautsThemeColors.of(context);
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: colors.accentSubtle,
+          border: Border.all(color: colors.statusBorder(colors.accent)),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.schedule_outlined, color: colors.accent),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    DateFormat('MMM d, yyyy - h:mm a').format(value),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleSmall?.copyWith(color: colors.accent),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Tap to change',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: colors.textTertiary),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -4116,6 +4596,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _loading = true;
   bool _saving = false;
   String? _error;
+  Map<String, dynamic>? _profile;
   Map<String, String> _fieldErrors = const {};
 
   @override
@@ -4154,13 +4635,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'familyName',
         'surname',
       ]);
-      _phoneController.text = _profileFieldText(profile, const [
-        'phone',
-        'phoneNumber',
-        'contactNumber',
-        'mobile',
-        'mobileNumber',
-      ]);
+      _phoneController.text = _localSriLankaPhoneText(
+        _profileFieldText(profile, const [
+          'phone',
+          'phoneNumber',
+          'contactNumber',
+          'mobile',
+          'mobileNumber',
+        ]),
+      );
       _address1Controller.text = _profileFieldText(profile, const [
         'addressLine1',
         'line1',
@@ -4176,7 +4659,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'city',
         'locality',
       ]);
-      setState(() => _loading = false);
+      setState(() {
+        _profile = profile;
+        _loading = false;
+      });
     } catch (error) {
       if (!mounted) {
         return;
@@ -4199,7 +4685,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         MotornautsPayloads.profileUpdate(
           firstName: _firstNameController.text.trim(),
           lastName: _lastNameController.text.trim(),
-          phone: _phoneController.text.trim(),
+          phone: _fullSriLankaPhoneText(_phoneController.text),
           addressLine1: _address1Controller.text.trim(),
           addressLine2: _address2Controller.text.trim(),
           city: _cityController.text.trim(),
@@ -4240,18 +4726,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
             if (_error != null)
               ErrorPanel(message: _error!, onRetry: _load)
             else ...[
-              _field(_firstNameController, 'First name', 'firstName'),
-              _field(_lastNameController, 'Last name', 'lastName'),
-              _field(_phoneController, 'Phone', 'phone'),
+              _ProfileHero(
+                profile: _profile ?? const {},
+                firstName: _firstNameController.text,
+                lastName: _lastNameController.text,
+                city: _cityController.text,
+              ),
+              const SizedBox(height: 18),
+              const _SectionDivider(label: 'Personal info'),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth < 380) {
+                    return Column(
+                      children: [
+                        _field(_firstNameController, 'First name', 'firstName'),
+                        _field(_lastNameController, 'Last name', 'lastName'),
+                      ],
+                    );
+                  }
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: _field(
+                          _firstNameController,
+                          'First name',
+                          'firstName',
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _field(
+                          _lastNameController,
+                          'Last name',
+                          'lastName',
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+              _phoneField(),
+              const SizedBox(height: 6),
+              const _SectionDivider(label: 'Address'),
               _field(
                 _address1Controller,
-                'Address line 1',
+                'Street',
                 'addressLine1',
                 required: false,
               ),
               _field(
                 _address2Controller,
-                'Address line 2',
+                'Area / landmark',
                 'addressLine2',
                 required: false,
               ),
@@ -4277,11 +4803,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     String label,
     String name, {
     bool required = true,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextFormField(
         controller: controller,
+        inputFormatters: inputFormatters,
         decoration: InputDecoration(
           labelText: label,
           errorText: _fieldErrors[name],
@@ -4292,6 +4820,164 @@ class _ProfileScreenState extends State<ProfileScreen> {
           }
           return null;
         },
+      ),
+    );
+  }
+
+  Widget _phoneField() {
+    final colors = MotornautsThemeColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 64,
+            height: 56,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: colors.elevated,
+              border: Border.all(color: colors.borderDefault),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text('+94', style: Theme.of(context).textTheme.titleSmall),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextFormField(
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: InputDecoration(
+                labelText: 'Phone number',
+                errorText: _fieldErrors['phone'],
+              ),
+              validator: (value) {
+                if (value?.trim().isEmpty ?? true) {
+                  return 'Required';
+                }
+                return null;
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileHero extends StatelessWidget {
+  const _ProfileHero({
+    required this.profile,
+    required this.firstName,
+    required this.lastName,
+    required this.city,
+  });
+
+  final Map<String, dynamic> profile;
+  final String firstName;
+  final String lastName;
+  final String city;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = MotornautsThemeColors.of(context);
+    final customer = _customerProfileFields(profile);
+    final email = valueText(customer, const [
+      'email',
+      'emailAddress',
+    ], fallback: '');
+    final name =
+        [
+          firstName,
+          lastName,
+        ].where((part) => part.trim().isNotEmpty).join(' ').trim();
+    final displayName = name.isEmpty ? 'Profile' : name;
+    final cityLabel = city.trim();
+
+    return _SurfacePanel(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(Icons.person_outline, color: colors.textSecondary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Profile',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+              ),
+              if (cityLabel.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colors.elevated,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    cityLabel,
+                    style: Theme.of(context).textTheme.labelMedium,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          _AvatarMonogram(label: displayName),
+          const SizedBox(height: 12),
+          Text(
+            displayName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          if (email.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              email,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+          const SizedBox(height: 12),
+          const _VerifiedAccountChip(),
+        ],
+      ),
+    );
+  }
+}
+
+class _VerifiedAccountChip extends StatelessWidget {
+  const _VerifiedAccountChip();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = MotornautsThemeColors.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: colors.statusBackground(colors.success),
+        border: Border.all(color: colors.statusBorder(colors.success)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.verified_outlined, size: 16, color: colors.success),
+          const SizedBox(width: 6),
+          Text(
+            'Verified account',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: colors.success,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -5179,8 +5865,77 @@ Map<String, dynamic> _customerProfileFields(Map<String, dynamic> profile) {
   };
 }
 
+String _greetingFor(DateTime value) {
+  final hour = value.hour;
+  if (hour < 12) {
+    return 'Good morning';
+  }
+  if (hour < 17) {
+    return 'Good afternoon';
+  }
+  return 'Good evening';
+}
+
+String _initialsFor(String value) {
+  final parts =
+      value
+          .trim()
+          .split(RegExp(r'\s+'))
+          .where((part) => part.isNotEmpty)
+          .toList();
+  if (parts.isEmpty) {
+    return 'AA';
+  }
+  final first = parts.first.substring(0, 1).toUpperCase();
+  final second =
+      parts.length > 1
+          ? parts.last.substring(0, 1).toUpperCase()
+          : (parts.first.length > 1
+              ? parts.first.substring(1, 2).toUpperCase()
+              : '');
+  return '$first$second';
+}
+
+String _truncateMiddle(String value, {required int maxLength}) {
+  if (value.length <= maxLength || maxLength < 8) {
+    return value;
+  }
+  final edge = ((maxLength - 3) / 2).floor();
+  return '${value.substring(0, edge)}...${value.substring(value.length - edge)}';
+}
+
+DateTime? _dateTimeFromKeys(Map<String, dynamic> object, List<String> keys) {
+  final value = valueText(object, keys, fallback: '');
+  if (value.isEmpty) {
+    return null;
+  }
+  return DateTime.tryParse(value);
+}
+
 String _profileFieldText(Map<String, dynamic> profile, List<String> keys) {
   return valueText(_customerProfileFields(profile), keys, fallback: '');
+}
+
+String _localSriLankaPhoneText(String value) {
+  var digits = value.replaceAll(RegExp(r'\D'), '');
+  if (digits.startsWith('94')) {
+    digits = digits.substring(2);
+  }
+  if (digits.startsWith('0')) {
+    digits = digits.substring(1);
+  }
+  return digits;
+}
+
+String _fullSriLankaPhoneText(String value) {
+  var digits = value.replaceAll(RegExp(r'\D'), '');
+  if (digits.startsWith('94')) {
+    digits = digits.substring(2);
+  }
+  if (digits.startsWith('0')) {
+    digits = digits.substring(1);
+  }
+  return '+94$digits';
 }
 
 _DetailRow? _detailRow({
@@ -5533,36 +6288,137 @@ DropdownMenuItem<String> _dropdownItem(String value) {
   return DropdownMenuItem(value: value, child: Text(_enumLabel(value)));
 }
 
-Widget _idDropdown({
+Widget _richIdDropdown({
   required String label,
+  required IconData icon,
   required String? value,
   required List<Map<String, dynamic>> items,
   required List<String> idKeys,
   required List<String> labelKeys,
+  required String Function(Map<String, dynamic> item) subtitleBuilder,
   required ValueChanged<String?> onChanged,
 }) {
-  final dropdownItems =
+  final options =
       items
           .map((item) {
             final id = objectId(item, idKeys);
             if (id == null) {
               return null;
             }
-            return DropdownMenuItem<String>(
-              value: id,
-              child: Text(valueText(item, labelKeys, fallback: id)),
+            return _DropdownOptionData(
+              id: id,
+              title: valueText(item, labelKeys, fallback: id),
+              subtitle: subtitleBuilder(item),
             );
           })
-          .whereType<DropdownMenuItem<String>>()
+          .whereType<_DropdownOptionData>()
           .toList();
-  final safeValue =
-      dropdownItems.any((item) => item.value == value) ? value : null;
+  final safeValue = options.any((item) => item.id == value) ? value : null;
   return DropdownButtonFormField<String>(
+    isExpanded: true,
     initialValue: safeValue,
-    decoration: InputDecoration(labelText: label),
-    items: dropdownItems,
+    decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon)),
+    items:
+        options
+            .map(
+              (option) => DropdownMenuItem<String>(
+                value: option.id,
+                child: _DropdownOption(option: option),
+              ),
+            )
+            .toList(),
+    selectedItemBuilder:
+        (context) =>
+            options
+                .map((option) => _DropdownOption(option: option, compact: true))
+                .toList(),
     onChanged: onChanged,
   );
+}
+
+String _vehicleOptionSubtitle(Map<String, dynamic> item) {
+  return _vehicleNameText(item);
+}
+
+String _branchOptionSubtitle(Map<String, dynamic> item) {
+  return _joinSummaryParts([
+    valueText(item, const ['city', 'locality'], fallback: ''),
+    valueText(item, const ['addressLine1', 'street'], fallback: ''),
+  ], separator: ' - ');
+}
+
+String _servicePackageOptionSubtitle(Map<String, dynamic> item) {
+  final duration = valueText(item, const [
+    'durationMinutes',
+    'estimatedDurationMinutes',
+  ], fallback: '');
+  final description = valueText(item, const [
+    'shortDescription',
+    'description',
+    'category',
+  ], fallback: '');
+  return _joinSummaryParts([
+    description,
+    if (duration.isNotEmpty) '$duration min',
+  ], separator: ' - ');
+}
+
+class _DropdownOptionData {
+  const _DropdownOptionData({
+    required this.id,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final String id;
+  final String title;
+  final String subtitle;
+}
+
+class _DropdownOption extends StatelessWidget {
+  const _DropdownOption({required this.option, this.compact = false});
+
+  final _DropdownOptionData option;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = MotornautsThemeColors.of(context);
+    if (compact) {
+      return Text(
+        option.title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.titleSmall,
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            option.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          if (option.subtitle.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              option.subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: colors.textTertiary),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 String _enumValue(Object? value, List<String> allowed, String fallback) {

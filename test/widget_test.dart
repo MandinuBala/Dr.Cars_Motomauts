@@ -14,17 +14,17 @@ void main() {
     final dark = buildMotornautsTheme(Brightness.dark);
     final darkColors = dark.extension<MotornautsThemeColors>()!;
 
-    expect(light.scaffoldBackgroundColor, const Color(0xFFFAFAF7));
-    expect(light.cardTheme.color, const Color(0xFFFFFFFF));
-    expect(light.colorScheme.primary, const Color(0xFFFF5A1F));
-    expect(lightColors.accentHover, const Color(0xFFE54A14));
-    expect(lightColors.secondaryAccent, const Color(0xFF1E2A4A));
+    expect(light.scaffoldBackgroundColor, const Color(0xFFF7F3EA));
+    expect(light.cardTheme.color, const Color(0xFFFFFCF5));
+    expect(light.colorScheme.primary, const Color(0xFFA65F12));
+    expect(lightColors.accentHover, const Color(0xFF8F4E0B));
+    expect(lightColors.secondaryAccent, const Color(0xFF383B40));
 
-    expect(dark.scaffoldBackgroundColor, const Color(0xFF000000));
-    expect(dark.cardTheme.color, const Color(0xFF101014));
-    expect(dark.colorScheme.primary, const Color(0xFF00E5FF));
-    expect(darkColors.accentHover, const Color(0xFF33ECFF));
-    expect(darkColors.secondaryAccent, const Color(0xFFFF2D95));
+    expect(dark.scaffoldBackgroundColor, const Color(0xFF0B0B0C));
+    expect(dark.cardTheme.color, const Color(0xFF171719));
+    expect(dark.colorScheme.primary, const Color(0xFFD98A21));
+    expect(darkColors.accentHover, const Color(0xFFF0A23A));
+    expect(darkColors.secondaryAccent, const Color(0xFF6F767F));
 
     expect(light.navigationBarTheme.height, 72);
     expect(
@@ -35,11 +35,11 @@ void main() {
       (light.inputDecorationTheme.focusedBorder! as OutlineInputBorder)
           .borderSide
           .color,
-      const Color(0xFFFF5A1F),
+      const Color(0xFFA65F12),
     );
     expect(
       dark.filledButtonTheme.style!.backgroundColor!.resolve({}),
-      const Color(0xFF00E5FF),
+      const Color(0xFFD98A21),
     );
     expect(
       light.filledButtonTheme.style!.minimumSize!.resolve({}),
@@ -174,12 +174,13 @@ void main() {
     await _pumpUntilFound(tester, _fieldWithLabel('6-digit code'));
     await tester.enterText(_fieldWithLabel('6-digit code'), '123456');
     await _tapVisible(tester, find.text('Verify and continue'));
-    await _pumpUntilFound(tester, find.text('Customer profile'));
+    await _pumpUntilFound(tester, find.textContaining('Ada'));
 
     expect(gateway.requestedOtp, isTrue);
     expect(gateway.verifiedOtp, isTrue);
-    expect(find.text('Dashboard summary'), findsOneWidget);
+    expect(find.text('OVERVIEW'), findsOneWidget);
     expect(find.text('Appointments'), findsOneWidget);
+    expect(find.text('UPCOMING'), findsOneWidget);
     expect(find.text('Active service jobs'), findsOneWidget);
     expect(find.textContaining('CBY-6268'), findsOneWidget);
     expect(find.textContaining('"tenantId"'), findsNothing);
@@ -226,10 +227,15 @@ void main() {
     expect(gateway.updatedVehicle, isTrue);
 
     await _tapVisible(tester, find.text('Book'));
-    await _pumpUntilFound(tester, find.text('New appointment'));
+    await _pumpUntilFound(tester, find.text('New booking'));
+    expect(find.text('VEHICLE & LOCATION'), findsOneWidget);
+    expect(find.text('Tap to change'), findsOneWidget);
     await _enterField(tester, 'Mileage at booking', '12400');
-    await _enterField(tester, 'Complaints', 'Brake noise');
-    await _enterField(tester, 'Notes', 'Use sample smoke test data');
+    await _enterField(
+      tester,
+      'Notes / complaints',
+      'Brake noise. Use sample smoke test data',
+    );
     await _tapVisible(tester, find.text('Check availability'));
     expect(gateway.checkedAvailability, isTrue);
     await _tapVisible(tester, find.text('Request appointment'));
@@ -274,14 +280,20 @@ void main() {
 
     await _tapVisible(tester, find.text('More'));
     await _pumpUntilFound(tester, find.text('Profile'));
-    await _tapVisible(tester, find.text('Profile').first);
-    await _pumpUntilFound(tester, find.text('Save profile'));
+    await _tapVisible(tester, find.widgetWithText(DataListTile, 'Profile'));
+    await _pumpUntilFound(tester, find.text('Verified account'));
+    expect(find.text('Verified account'), findsOneWidget);
+    await _scrollUntilVisible(tester, _fieldWithLabel('First name'));
     expect(_fieldValue(tester, 'First name'), 'Ada');
     expect(_fieldValue(tester, 'Last name'), 'Lovelace');
-    expect(_fieldValue(tester, 'Phone'), '+94770000000');
-    expect(_fieldValue(tester, 'Address line 1'), '42 Engine Lane');
+    await _scrollUntilVisible(tester, _fieldWithLabel('Phone number'));
+    expect(find.text('+94'), findsOneWidget);
+    expect(_fieldValue(tester, 'Phone number'), '770000000');
+    await _scrollUntilVisible(tester, _fieldWithLabel('Street'));
+    expect(_fieldValue(tester, 'Street'), '42 Engine Lane');
     expect(_fieldValue(tester, 'City'), 'Colombo');
-    await _enterField(tester, 'Phone', '+94770000001');
+    await _enterField(tester, 'Phone number', '770000001');
+    await _scrollUntilVisible(tester, find.text('Save profile'));
     await _tapVisible(tester, find.text('Save profile'));
     expect(gateway.updatedProfile, isTrue);
     await _goBack(tester);
@@ -1008,7 +1020,11 @@ Future<void> _scrollUntilVisible(WidgetTester tester, Finder finder) async {
 
 Future<void> _dragListUntilVisible(WidgetTester tester, Finder finder) async {
   final list = find.byType(ListView).last;
-  for (var attempt = 0; attempt < 8 && finder.evaluate().isEmpty; attempt += 1) {
+  for (
+    var attempt = 0;
+    attempt < 8 && finder.evaluate().isEmpty;
+    attempt += 1
+  ) {
     await tester.drag(list, const Offset(0, -320), warnIfMissed: false);
     await tester.pumpAndSettle();
   }

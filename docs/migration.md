@@ -6,8 +6,8 @@ The Flutter app has been migrated from the legacy DR.Cars role-based API to the 
 
 Default build configuration:
 
-- `API_BASE_URL=http://localhost:4000/api/v1`
-- `TENANT_SLUG=isira-motors-demo`
+- `API_BASE_URL=https://api.motornauts.com`
+- `TENANT_SLUG=anton-auto-care`
 - `REQUEST_TIMEOUT_SECONDS=30`
 - `ENABLE_SSE_TIMELINE=false`
 - `ENABLE_PAYMENT_CUSTOM_TAB=true`

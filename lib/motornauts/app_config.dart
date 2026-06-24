@@ -11,11 +11,11 @@ class MotornautsConfig {
     return MotornautsConfig(
       apiBaseUrl: const String.fromEnvironment(
         'API_BASE_URL',
-        defaultValue: 'http://localhost:4000/api/v1',
+        defaultValue: 'https://api.motornauts.com',
       ),
       tenantSlug: const String.fromEnvironment(
         'TENANT_SLUG',
-        defaultValue: 'isira-motors-demo',
+        defaultValue: 'anton-auto-care',
       ),
       requestTimeoutSeconds: const int.fromEnvironment(
         'REQUEST_TIMEOUT_SECONDS',

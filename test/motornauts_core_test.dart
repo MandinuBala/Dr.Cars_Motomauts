@@ -10,6 +10,17 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('MotornautsConfig', () {
+    test('uses production tenant defaults when build defines are absent', () {
+      final config = MotornautsConfig.fromEnvironment();
+
+      expect(config.apiBaseUrl, 'https://api.motornauts.com');
+      expect(config.tenantSlug, 'anton-auto-care');
+      expect(
+        config.tenantUri('public-profile').toString(),
+        'https://api.motornauts.com/t/anton-auto-care/public-profile',
+      );
+    });
+
     test('normalizes base URL and URL-encodes tenant paths', () {
       final config = MotornautsConfig(
         apiBaseUrl: 'https://api.example.com/api/v1///',

@@ -1,0 +1,1716 @@
+openapi: 3.1.0
+info:
+  title: Motornauts Customer Mobile API
+  version: 0.1.0
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+  description: |
+    Customer-only OpenAPI catalog for integrating a tenant-scoped mobile app with the
+    existing Motornauts API. This file intentionally excludes staff, platform, fleet,
+    webhook, provider-configuration, and admin endpoints.
+servers:
+  - url: "{apiBaseUrl}/api/v1"
+    variables:
+      apiBaseUrl:
+        default: "http://localhost:4000"
+        description: API origin without the global /api/v1 prefix.
+tags:
+  - name: Tenant Bootstrap
+    description: Public tenant identity and branding.
+  - name: Self Registration
+    description: Public tenant customer registration request flow.
+  - name: Customer Auth
+    description: Customer OTP session endpoints.
+  - name: Profile
+    description: Signed-in customer profile endpoints.
+  - name: Vehicles
+    description: Customer vehicle garage endpoints.
+  - name: Documents
+    description: Private vehicle document upload and access endpoints.
+  - name: Appointments
+    description: Customer booking and appointment endpoints.
+  - name: Dashboard
+    description: Customer portal dashboard summary.
+  - name: Repair Orders
+    description: Customer-visible repair order and timeline endpoints.
+  - name: Estimates
+    description: Customer-visible estimate approval endpoints.
+  - name: PDFs
+    description: Customer PDF state and signed download URL endpoints.
+  - name: Invoices
+    description: Customer invoice endpoints.
+  - name: Payments
+    description: Tokenized customer payment request endpoints.
+  - name: Feedback
+    description: Tokenized customer feedback endpoints.
+  - name: Compliance
+    description: Public tenant privacy/compliance request intake.
+
+security: []
+
+paths:
+  /t/{tenantSlug}/public-profile:
+    get:
+      tags: [Tenant Bootstrap]
+      summary: Get public tenant profile
+      operationId: getPublicTenantProfile
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/public-profile/logo:
+    get:
+      tags: [Tenant Bootstrap]
+      summary: Get active public tenant logo
+      operationId: getPublicTenantLogo
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+      responses:
+        "200":
+          description: Tenant logo image bytes.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            X-Content-Type-Options:
+              schema:
+                type: string
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/customer-self-registration:
+    get:
+      tags: [Self Registration]
+      summary: Get public self-registration availability
+      operationId: getCustomerSelfRegistrationAvailability
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+      responses:
+        "200":
+          description: Availability envelope.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/SelfRegistrationAvailability"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/customer-self-registration-requests:
+    post:
+      tags: [Self Registration]
+      summary: Submit a customer self-registration request
+      operationId: submitCustomerSelfRegistrationRequest
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SelfRegistrationSubmitInput"
+      responses:
+        "201":
+          $ref: "#/components/responses/ObjectEnvelope"
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/customer-auth/otp/request:
+    post:
+      tags: [Customer Auth]
+      summary: Request customer OTP
+      operationId: requestCustomerOtp
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OtpRequestInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/customer-auth/otp/resend:
+    post:
+      tags: [Customer Auth]
+      summary: Resend customer OTP
+      operationId: resendCustomerOtp
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OtpResendInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/customer-auth/otp/verify:
+    post:
+      tags: [Customer Auth]
+      summary: Verify customer OTP and set session cookie
+      operationId: verifyCustomerOtp
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OtpVerifyInput"
+      responses:
+        "200":
+          description: Session envelope. The response sets the customer session cookie.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [session]
+                        properties:
+                          session:
+                            $ref: "#/components/schemas/CustomerSession"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/customer-auth/session:
+    get:
+      tags: [Customer Auth]
+      summary: Get current customer session
+      operationId: getCustomerSession
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/customer-auth/logout:
+    post:
+      tags: [Customer Auth]
+      summary: Logout current customer session
+      operationId: logoutCustomerSession
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/customers/me:
+    get:
+      tags: [Profile]
+      summary: Get signed-in customer profile
+      operationId: getMyCustomerProfile
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+    patch:
+      tags: [Profile]
+      summary: Update signed-in customer profile
+      operationId: updateMyCustomerProfile
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerProfileUpdateInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/vehicles:
+    get:
+      tags: [Vehicles]
+      summary: List customer vehicles
+      operationId: listCustomerVehicles
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: tenantCustomerId
+          in: query
+          schema:
+            $ref: "#/components/schemas/Id"
+        - name: registrationNumber
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+    post:
+      tags: [Vehicles]
+      summary: Create customer vehicle
+      operationId: createCustomerVehicle
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VehicleCreateInput"
+      responses:
+        "201":
+          $ref: "#/components/responses/ObjectEnvelope"
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/vehicles/summary:
+    get:
+      tags: [Vehicles]
+      summary: Get vehicle summary
+      operationId: getVehicleSummary
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/vehicles/{vehicleId}:
+    get:
+      tags: [Vehicles]
+      summary: Get customer vehicle
+      operationId: getCustomerVehicle
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/VehicleId"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+    patch:
+      tags: [Vehicles]
+      summary: Update customer vehicle
+      operationId: updateCustomerVehicle
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/VehicleId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VehicleUpdateInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/vehicles/{vehicleId}/documents:
+    get:
+      tags: [Documents]
+      summary: List vehicle documents
+      operationId: listVehicleDocuments
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/VehicleId"
+        - name: documentType
+          in: query
+          schema:
+            $ref: "#/components/schemas/VehicleDocumentType"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/vehicles/{vehicleId}/documents/upload-intents:
+    post:
+      tags: [Documents]
+      summary: Create vehicle document upload intent
+      description: |
+        Step 1 of the document upload flow. After this call, upload bytes directly to
+        the returned signed upload URL, then call complete-upload.
+      operationId: createVehicleDocumentUploadIntent
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/VehicleId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VehicleDocumentUploadIntentInput"
+      responses:
+        "200":
+          description: Pending document and signed upload target.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [document, upload]
+                        properties:
+                          document:
+                            $ref: "#/components/schemas/LooseObject"
+                          upload:
+                            $ref: "#/components/schemas/SignedObjectAccess"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/vehicles/{vehicleId}/documents/{documentId}/complete-upload:
+    post:
+      tags: [Documents]
+      summary: Complete vehicle document upload
+      description: Step 3 of the document upload flow. Call after direct object upload succeeds.
+      operationId: completeVehicleDocumentUpload
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/VehicleId"
+        - $ref: "#/components/parameters/DocumentId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/vehicles/{vehicleId}/documents/{documentId}/view-url:
+    post:
+      tags: [Documents]
+      summary: Create inline document access URL
+      operationId: createVehicleDocumentViewUrl
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/VehicleId"
+        - $ref: "#/components/parameters/DocumentId"
+      responses:
+        "200":
+          $ref: "#/components/responses/SignedObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/vehicles/{vehicleId}/documents/{documentId}/download-url:
+    post:
+      tags: [Documents]
+      summary: Create attachment document access URL
+      operationId: createVehicleDocumentDownloadUrl
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/VehicleId"
+        - $ref: "#/components/parameters/DocumentId"
+      responses:
+        "200":
+          $ref: "#/components/responses/SignedObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/appointments/booking-options:
+    get:
+      tags: [Appointments]
+      summary: Get customer booking options
+      operationId: getCustomerBookingOptions
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/appointments/availability:
+    get:
+      tags: [Appointments]
+      summary: Get appointment availability
+      operationId: getAppointmentAvailability
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - name: branchId
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/Id"
+        - name: servicePackageId
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/Id"
+        - name: from
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/IsoDateTime"
+        - name: to
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/IsoDateTime"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/appointments:
+    get:
+      tags: [Appointments]
+      summary: List customer appointments
+      operationId: listCustomerAppointments
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+    post:
+      tags: [Appointments]
+      summary: Create customer booking
+      operationId: createCustomerBooking
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerBookingCreateInput"
+      responses:
+        "201":
+          $ref: "#/components/responses/ObjectEnvelope"
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/appointments/{appointmentId}:
+    get:
+      tags: [Appointments]
+      summary: Get customer appointment
+      operationId: getCustomerAppointment
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/AppointmentId"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/appointments/{appointmentId}/status:
+    patch:
+      tags: [Appointments]
+      summary: Submit a customer-permitted appointment status transition
+      operationId: transitionCustomerAppointmentStatus
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/AppointmentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppointmentTransitionInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/portal/dashboard/summary:
+    get:
+      tags: [Dashboard]
+      summary: Get customer dashboard summary
+      operationId: getCustomerDashboardSummary
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/repair-orders:
+    get:
+      tags: [Repair Orders]
+      summary: List customer repair orders
+      operationId: listCustomerRepairOrders
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/repair-orders/{repairOrderId}:
+    get:
+      tags: [Repair Orders]
+      summary: Get customer repair order
+      operationId: getCustomerRepairOrder
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/RepairOrderId"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/repair-orders/{repairOrderId}/timeline:
+    get:
+      tags: [Repair Orders]
+      summary: List customer repair-order timeline
+      operationId: listCustomerRepairOrderTimeline
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/RepairOrderId"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/repair-orders/{repairOrderId}/timeline/stream:
+    get:
+      tags: [Repair Orders]
+      summary: Stream customer repair-order timeline events
+      operationId: streamCustomerRepairOrderTimeline
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/RepairOrderId"
+        - name: Last-Event-ID
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Server-sent event stream.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/repair-orders/{repairOrderId}/estimates/{estimateId}:
+    get:
+      tags: [Estimates]
+      summary: Get customer-visible estimate
+      operationId: getCustomerEstimate
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/RepairOrderId"
+        - $ref: "#/components/parameters/EstimateId"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/repair-orders/{repairOrderId}/estimates/{estimateId}/decisions:
+    post:
+      tags: [Estimates]
+      summary: Submit customer estimate decisions
+      operationId: submitCustomerEstimateDecisions
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/RepairOrderId"
+        - $ref: "#/components/parameters/EstimateId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EstimateDecisionBatchInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/portal/invoices/{invoiceId}/pdf:
+    get:
+      tags: [PDFs]
+      summary: Get customer invoice PDF state
+      operationId: getCustomerInvoicePdfState
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/InvoiceId"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/portal/invoices/{invoiceId}/pdf/download-url:
+    post:
+      tags: [PDFs]
+      summary: Create customer invoice PDF download URL
+      operationId: createCustomerInvoicePdfDownloadUrl
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/InvoiceId"
+      requestBody:
+        $ref: "#/components/requestBodies/GeneratedArtifactDownloadRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/SignedObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/repair-orders/{repairOrderId}/estimates/{estimateId}/pdf:
+    get:
+      tags: [PDFs]
+      summary: Get customer estimate PDF state
+      operationId: getCustomerEstimatePdfState
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/RepairOrderId"
+        - $ref: "#/components/parameters/EstimateId"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/repair-orders/{repairOrderId}/estimates/{estimateId}/pdf/download-url:
+    post:
+      tags: [PDFs]
+      summary: Create customer estimate PDF download URL
+      operationId: createCustomerEstimatePdfDownloadUrl
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/RepairOrderId"
+        - $ref: "#/components/parameters/EstimateId"
+      requestBody:
+        $ref: "#/components/requestBodies/GeneratedArtifactDownloadRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/SignedObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/repair-orders/{repairOrderId}/inspections/{inspectionId}/pdf:
+    get:
+      tags: [PDFs]
+      summary: Get customer inspection report PDF state
+      operationId: getCustomerInspectionReportPdfState
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/RepairOrderId"
+        - $ref: "#/components/parameters/InspectionId"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/repair-orders/{repairOrderId}/inspections/{inspectionId}/pdf/download-url:
+    post:
+      tags: [PDFs]
+      summary: Create customer inspection report PDF download URL
+      operationId: createCustomerInspectionReportPdfDownloadUrl
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/RepairOrderId"
+        - $ref: "#/components/parameters/InspectionId"
+      requestBody:
+        $ref: "#/components/requestBodies/GeneratedArtifactDownloadRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/SignedObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/repair-orders/{repairOrderId}/service-history/pdf:
+    get:
+      tags: [PDFs]
+      summary: Get customer service-history PDF state
+      operationId: getCustomerServiceHistoryPdfState
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/RepairOrderId"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/repair-orders/{repairOrderId}/service-history/pdf/download-url:
+    post:
+      tags: [PDFs]
+      summary: Create customer service-history PDF download URL
+      operationId: createCustomerServiceHistoryPdfDownloadUrl
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/RepairOrderId"
+      requestBody:
+        $ref: "#/components/requestBodies/GeneratedArtifactDownloadRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/SignedObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/invoices:
+    get:
+      tags: [Invoices]
+      summary: List customer invoices
+      operationId: listCustomerInvoices
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/invoices/{invoiceId}:
+    get:
+      tags: [Invoices]
+      summary: Get customer invoice
+      operationId: getCustomerInvoice
+      security:
+        - customerSessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/InvoiceId"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/payment-requests/{paymentRequestId}:
+    get:
+      tags: [Payments]
+      summary: Get tokenized customer payment request
+      operationId: getCustomerPaymentRequest
+      security:
+        - publicTokenQuery: []
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/PaymentRequestId"
+        - name: token
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/PublicAccessToken"
+      responses:
+        "200":
+          description: Customer-safe payment request status and optional provider handoff.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PaymentRequestCustomerStatus"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/feedback/{token}:
+    get:
+      tags: [Feedback]
+      summary: Get tokenized feedback request
+      operationId: getCustomerFeedbackRequest
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/FeedbackToken"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+    post:
+      tags: [Feedback]
+      summary: Submit tokenized feedback
+      operationId: submitCustomerFeedback
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+        - $ref: "#/components/parameters/FeedbackToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FeedbackSubmitInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+  /t/{tenantSlug}/compliance-requests:
+    post:
+      tags: [Compliance]
+      summary: Submit tenant-scoped customer privacy/compliance request
+      operationId: submitTenantComplianceRequest
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ComplianceRequestIntakeInput"
+      responses:
+        "201":
+          $ref: "#/components/responses/ObjectEnvelope"
+        "200":
+          $ref: "#/components/responses/ObjectEnvelope"
+        default:
+          $ref: "#/components/responses/ApiError"
+
+components:
+  securitySchemes:
+    customerSessionCookie:
+      type: apiKey
+      in: cookie
+      name: motornauts_customer_session
+      description: Customer portal session cookie set by OTP verification.
+    publicTokenQuery:
+      type: apiKey
+      in: query
+      name: token
+      description: Public access token from a customer payment link.
+
+  parameters:
+    TenantSlug:
+      name: tenantSlug
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/TenantSlug"
+    VehicleId:
+      name: vehicleId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Id"
+    DocumentId:
+      name: documentId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Id"
+    AppointmentId:
+      name: appointmentId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Id"
+    RepairOrderId:
+      name: repairOrderId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Id"
+    EstimateId:
+      name: estimateId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Id"
+    InspectionId:
+      name: inspectionId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Id"
+    InvoiceId:
+      name: invoiceId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Id"
+    PaymentRequestId:
+      name: paymentRequestId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Id"
+    FeedbackToken:
+      name: token
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 32
+        maxLength: 192
+        pattern: "^[A-Za-z0-9_-]+$"
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: pageSize
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  requestBodies:
+    GeneratedArtifactDownloadRequest:
+      required: false
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/GeneratedArtifactDownloadRequest"
+
+  responses:
+    ObjectEnvelope:
+      description: JSON response envelope with customer-safe data.
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/ApiEnvelope"
+              - type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/LooseObject"
+    SignedObjectEnvelope:
+      description: JSON response envelope containing a short-lived signed object URL.
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/ApiEnvelope"
+              - type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/SignedObjectAccess"
+    ApiError:
+      description: Normalized API error.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+
+  schemas:
+    ApiEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data: {}
+      additionalProperties: false
+
+    ApiError:
+      type: object
+      required: [error, message, messageKey, requestId]
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        messageKey:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+        requestId:
+          type: string
+      additionalProperties: false
+
+    LooseObject:
+      type: object
+      additionalProperties: true
+
+    Id:
+      type: string
+      minLength: 1
+      maxLength: 128
+
+    TenantSlug:
+      type: string
+      minLength: 2
+      maxLength: 80
+      pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+
+    IsoDateTime:
+      type: string
+      format: date-time
+
+    IdempotencyKey:
+      type: string
+      minLength: 8
+      maxLength: 128
+
+    PublicAccessToken:
+      type: string
+      minLength: 32
+      maxLength: 128
+      pattern: "^[A-Za-z0-9_-]+$"
+
+    CustomerSession:
+      type: object
+      required: [id, expiresAt]
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        expiresAt:
+          $ref: "#/components/schemas/IsoDateTime"
+      additionalProperties: true
+
+    SelfRegistrationAvailability:
+      type: object
+      required: [available, module, publicTermsCopy]
+      properties:
+        available:
+          type: boolean
+        module:
+          type: object
+          required: [moduleKey, state]
+          properties:
+            moduleKey:
+              type: string
+            state:
+              type: string
+              enum: [enabled, unavailable]
+          additionalProperties: true
+        publicTermsCopy:
+          type:
+            - string
+            - "null"
+      additionalProperties: false
+
+    SelfRegistrationSubmitInput:
+      type: object
+      required:
+        - firstName
+        - lastName
+        - email
+        - phone
+        - registrationNumber
+        - make
+        - model
+        - year
+        - fuelType
+        - transmission
+        - currentMileage
+        - termsAccepted
+      properties:
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 160
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 160
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        addressLine1:
+          type:
+            - string
+            - "null"
+        addressLine2:
+          type:
+            - string
+            - "null"
+        city:
+          type:
+            - string
+            - "null"
+        registrationNumber:
+          type: string
+        vehicleType:
+          $ref: "#/components/schemas/VehicleType"
+        make:
+          type: string
+        model:
+          type: string
+        year:
+          type: integer
+          minimum: 1900
+          maximum: 2100
+        fuelType:
+          $ref: "#/components/schemas/VehicleFuelType"
+        transmission:
+          $ref: "#/components/schemas/VehicleTransmission"
+        currentMileage:
+          type: integer
+          minimum: 0
+          maximum: 2000000
+        chassisNumber:
+          type:
+            - string
+            - "null"
+        engineNumber:
+          type:
+            - string
+            - "null"
+        nickname:
+          type:
+            - string
+            - "null"
+        ownershipStatus:
+          $ref: "#/components/schemas/VehicleOwnershipStatus"
+        termsAccepted:
+          type: boolean
+          const: true
+        marketingConsent:
+          type: boolean
+          default: false
+      additionalProperties: false
+
+    OtpRequestInput:
+      type: object
+      required: [channel]
+      properties:
+        channel:
+          type: string
+          enum: [EMAIL, SMS]
+          default: EMAIL
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+      additionalProperties: false
+
+    OtpResendInput:
+      type: object
+      required: [challengeId]
+      properties:
+        challengeId:
+          $ref: "#/components/schemas/Id"
+      additionalProperties: false
+
+    OtpVerifyInput:
+      type: object
+      required: [challengeId, code]
+      properties:
+        challengeId:
+          $ref: "#/components/schemas/Id"
+        code:
+          type: string
+          pattern: "^\\d{6}$"
+      additionalProperties: false
+
+    CustomerProfileUpdateInput:
+      type: object
+      properties:
+        firstName:
+          type:
+            - string
+            - "null"
+          minLength: 1
+          maxLength: 120
+        lastName:
+          type:
+            - string
+            - "null"
+          minLength: 1
+          maxLength: 120
+        phone:
+          type:
+            - string
+            - "null"
+        addressLine1:
+          type:
+            - string
+            - "null"
+          minLength: 1
+          maxLength: 240
+        addressLine2:
+          type:
+            - string
+            - "null"
+          minLength: 1
+          maxLength: 240
+        city:
+          type:
+            - string
+            - "null"
+          minLength: 1
+          maxLength: 120
+      additionalProperties: false
+
+    VehicleCreateInput:
+      type: object
+      required:
+        - tenantCustomerId
+        - registrationNumber
+        - make
+        - model
+        - year
+        - fuelType
+        - transmission
+        - currentMileage
+      properties:
+        tenantCustomerId:
+          $ref: "#/components/schemas/Id"
+        registrationNumber:
+          type: string
+        vehicleType:
+          $ref: "#/components/schemas/VehicleType"
+        make:
+          type: string
+        model:
+          type: string
+        year:
+          type: integer
+          minimum: 1900
+          maximum: 2100
+        fuelType:
+          $ref: "#/components/schemas/VehicleFuelType"
+        transmission:
+          $ref: "#/components/schemas/VehicleTransmission"
+        currentMileage:
+          type: integer
+          minimum: 0
+          maximum: 2000000
+        chassisNumber:
+          type:
+            - string
+            - "null"
+        engineNumber:
+          type:
+            - string
+            - "null"
+        nickname:
+          type:
+            - string
+            - "null"
+        ownershipStatus:
+          $ref: "#/components/schemas/VehicleOwnershipStatus"
+      additionalProperties: false
+
+    VehicleUpdateInput:
+      type: object
+      properties:
+        registrationNumber:
+          type: string
+        vehicleType:
+          $ref: "#/components/schemas/VehicleType"
+        make:
+          type: string
+        model:
+          type: string
+        year:
+          type: integer
+          minimum: 1900
+          maximum: 2100
+        fuelType:
+          $ref: "#/components/schemas/VehicleFuelType"
+        transmission:
+          $ref: "#/components/schemas/VehicleTransmission"
+        currentMileage:
+          type: integer
+          minimum: 0
+          maximum: 2000000
+        chassisNumber:
+          type:
+            - string
+            - "null"
+        engineNumber:
+          type:
+            - string
+            - "null"
+        nickname:
+          type:
+            - string
+            - "null"
+        ownershipStatus:
+          $ref: "#/components/schemas/VehicleOwnershipStatus"
+      additionalProperties: false
+
+    VehicleDocumentUploadIntentInput:
+      type: object
+      required: [documentType, fileName, mimeType, fileSizeBytes]
+      properties:
+        documentType:
+          $ref: "#/components/schemas/VehicleDocumentType"
+        fileName:
+          type: string
+          minLength: 1
+          maxLength: 180
+        mimeType:
+          type: string
+          enum: [application/pdf, image/jpeg, image/png, image/webp]
+        fileSizeBytes:
+          type: integer
+          minimum: 1
+          maximum: 10485760
+        checksumSha256:
+          type: string
+          pattern: "^[A-Za-z0-9+/]{43}=$"
+      additionalProperties: false
+
+    CustomerBookingCreateInput:
+      type: object
+      required: [vehicleId, branchId, servicePackageId, requestedStartAt, idempotencyKey]
+      properties:
+        vehicleId:
+          $ref: "#/components/schemas/Id"
+        branchId:
+          $ref: "#/components/schemas/Id"
+        servicePackageId:
+          $ref: "#/components/schemas/Id"
+        requestedStartAt:
+          $ref: "#/components/schemas/IsoDateTime"
+        requestedEndAt:
+          $ref: "#/components/schemas/IsoDateTime"
+        mileageAtBooking:
+          type: integer
+          minimum: 0
+          maximum: 2000000
+        customerNotes:
+          type:
+            - string
+            - "null"
+          maxLength: 2000
+        complaints:
+          type:
+            - string
+            - "null"
+          maxLength: 2000
+        idempotencyKey:
+          $ref: "#/components/schemas/IdempotencyKey"
+      additionalProperties: false
+
+    AppointmentTransitionInput:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+        note:
+          type:
+            - string
+            - "null"
+          maxLength: 1000
+        confirmedStartAt:
+          $ref: "#/components/schemas/IsoDateTime"
+        confirmedEndAt:
+          $ref: "#/components/schemas/IsoDateTime"
+        rescheduledStartAt:
+          $ref: "#/components/schemas/IsoDateTime"
+        rescheduledEndAt:
+          $ref: "#/components/schemas/IsoDateTime"
+        internalNotes:
+          type:
+            - string
+            - "null"
+          maxLength: 2000
+      additionalProperties: false
+
+    EstimateDecisionBatchInput:
+      type: object
+      required: [estimateVersion, idempotencyKey, decisions]
+      properties:
+        estimateVersion:
+          type: integer
+          minimum: 1
+        idempotencyKey:
+          $ref: "#/components/schemas/IdempotencyKey"
+        decisions:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            type: object
+            required: [estimateLineItemId, status]
+            properties:
+              estimateLineItemId:
+                $ref: "#/components/schemas/Id"
+              status:
+                type: string
+                enum: [APPROVED, REJECTED]
+              note:
+                type:
+                  - string
+                  - "null"
+                maxLength: 1000
+            additionalProperties: false
+      additionalProperties: false
+
+    GeneratedArtifactDownloadRequest:
+      type: object
+      properties:
+        disposition:
+          type: string
+          enum: [inline, attachment]
+          default: attachment
+      additionalProperties: false
+
+    SignedObjectAccess:
+      type: object
+      required: [url, expiresAt]
+      properties:
+        url:
+          type: string
+          format: uri
+        expiresAt:
+          $ref: "#/components/schemas/IsoDateTime"
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+      additionalProperties: false
+
+    PaymentRequestCustomerStatus:
+      type: object
+      required: [id, tenantName, status]
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        tenantName:
+          type: string
+        status:
+          type: string
+        amountMinor:
+          type: integer
+        currency:
+          type: string
+        expiresAt:
+          $ref: "#/components/schemas/IsoDateTime"
+        providerHandoff:
+          oneOf:
+            - $ref: "#/components/schemas/ProviderHandoff"
+            - type: "null"
+      additionalProperties: true
+
+    ProviderHandoff:
+      type: object
+      required: [provider, method, action, fields]
+      properties:
+        provider:
+          type: string
+          enum: [PAYHERE, WEBXPAY]
+        method:
+          type: string
+          enum: [POST]
+        action:
+          type: string
+          format: uri
+        fields:
+          type: object
+          additionalProperties:
+            type: string
+      additionalProperties: false
+
+    FeedbackSubmitInput:
+      type: object
+      required: [rating]
+      properties:
+        rating:
+          type: integer
+          enum: [1, 2, 3, 4, 5]
+        comment:
+          type: string
+          maxLength: 2000
+      additionalProperties: false
+
+    ComplianceRequestIntakeInput:
+      type: object
+      required: [requestType, summary, evidence, sourceEntityType]
+      properties:
+        requestType:
+          type: string
+        requesterType:
+          type: string
+          default: UNKNOWN
+        requesterName:
+          type:
+            - string
+            - "null"
+        requesterEmail:
+          type:
+            - string
+            - "null"
+          format: email
+        requesterPhone:
+          type:
+            - string
+            - "null"
+        summary:
+          type: string
+        evidence:
+          type: object
+          additionalProperties: true
+        sourceEntityType:
+          type: string
+        sourceEntityId:
+          type:
+            - string
+            - "null"
+        turnstileToken:
+          type:
+            - string
+            - "null"
+          maxLength: 4096
+      additionalProperties: false
+
+    VehicleType:
+      type: string
+      enum: [CAR, SUV, VAN, PICKUP, MOTORCYCLE, TRUCK, BUS, OTHER]
+
+    VehicleFuelType:
+      type: string
+      enum: [PETROL, DIESEL, HYBRID, ELECTRIC, OTHER]
+
+    VehicleTransmission:
+      type: string
+      enum: [MANUAL, AUTOMATIC, CVT, OTHER]
+
+    VehicleOwnershipStatus:
+      type: string
+      enum: [OWNED, LEASED, COMPANY, OTHER]
+
+    VehicleDocumentType:
+      type: string
+      enum: [REGISTRATION_CERTIFICATE, INSURANCE, REVENUE_LICENSE, EMISSION_TEST, OTHER]

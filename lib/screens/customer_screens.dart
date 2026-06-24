@@ -1034,11 +1034,12 @@ class _HomeScreenState extends State<HomeScreen> {
       onRefresh: _load,
       child: _MobileListView(
         children: [
-          _HomeHeader(profile: _profile ?? const {}),
-          TenantBrandCard(
+          _TenantBranchTitle(
             tenantProfile: widget.tenantProfile,
+            dashboardSummary: _summary,
             fallbackSlug: widget.client.config.tenantSlug,
           ),
+          _HomeHeader(profile: _profile ?? const {}),
           if (_loading) const _LoadingBar(),
           if (_error != null)
             ErrorPanel(message: _error!, onRetry: _load)
@@ -1109,82 +1110,41 @@ class _HomeHeader extends StatelessWidget {
   }
 }
 
-class TenantBrandCard extends StatelessWidget {
-  const TenantBrandCard({
+class _TenantBranchTitle extends StatelessWidget {
+  const _TenantBranchTitle({
     required this.tenantProfile,
+    required this.dashboardSummary,
     required this.fallbackSlug,
-    super.key,
   });
 
   final Map<String, dynamic> tenantProfile;
+  final Object? dashboardSummary;
   final String fallbackSlug;
 
   @override
   Widget build(BuildContext context) {
     final colors = MotornautsThemeColors.of(context);
-    final fields = _tenantProfileFields(tenantProfile);
-    final tenantName = _tenantDisplayName(tenantProfile, fallbackSlug);
-    final subtitle = valueText(fields, const [
-      'tagline',
-      'shortDescription',
-      'description',
-      'city',
-      'location',
-    ], fallback: '');
+    final label =
+        _tenantBranchTitle(
+          tenantProfile,
+          dashboardSummary,
+          fallbackSlug,
+        ).toUpperCase();
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: _cardBottomSpacing),
-      child: _SurfacePanel(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            _AvatarMonogram(label: tenantName, size: 52),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Service center',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: colors.textTertiary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    tenantName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  if (subtitle.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Container(
-              width: 40,
-              height: 40,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: colors.elevated,
-                border: Border.all(color: colors.borderDefault),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(Icons.storefront_outlined, color: colors.accent),
-            ),
-          ],
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Center(
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+            color: colors.accent,
+            fontFamily: 'monospace',
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0,
+          ),
         ),
       ),
     );
@@ -5920,6 +5880,82 @@ String _tenantDisplayName(Map<String, dynamic> profile, String fallbackSlug) {
   }
   final slug = valueText(fields, const ['slug'], fallback: fallbackSlug);
   return _readableSlug(slug);
+}
+
+String _tenantBranchTitle(
+  Map<String, dynamic> profile,
+  Object? dashboardSummary,
+  String fallbackSlug,
+) {
+  final tenantName = _tenantDisplayName(profile, fallbackSlug);
+  final branchName = _tenantBranchName(profile, dashboardSummary);
+  if (branchName.isEmpty) {
+    return tenantName;
+  }
+  return '$tenantName - $branchName';
+}
+
+String _tenantBranchName(
+  Map<String, dynamic> profile,
+  Object? dashboardSummary,
+) {
+  final fields = _tenantProfileFields(profile);
+  final direct = valueText(fields, const [
+    'branchName',
+    'primaryBranchName',
+    'defaultBranchName',
+    'locationName',
+    'city',
+  ], fallback: '');
+  if (direct.isNotEmpty) {
+    return direct;
+  }
+
+  for (final branch in [
+    objectMap(profile['branch']),
+    objectMap(profile['primaryBranch']),
+    objectMap(profile['defaultBranch']),
+    objectMap(objectMap(profile['tenant'])['branch']),
+  ]) {
+    final name = valueText(branch, const [
+      'name',
+      'displayName',
+      'branchName',
+    ], fallback: '');
+    if (name.isNotEmpty) {
+      return name;
+    }
+  }
+
+  final summary = objectMap(dashboardSummary);
+  final summaryDirect = valueText(summary, const [
+    'branchName',
+    'primaryBranchName',
+    'defaultBranchName',
+    'locationName',
+  ], fallback: '');
+  if (summaryDirect.isNotEmpty) {
+    return summaryDirect;
+  }
+
+  final appointments = _summaryItems(summary, const [
+    'upcomingAppointments',
+    'openAppointments',
+    'appointments',
+  ]);
+  for (final appointment in appointments) {
+    final branch = objectMap(appointment['branch']);
+    final name = valueText(branch, const [
+      'name',
+      'displayName',
+      'branchName',
+    ], fallback: valueText(appointment, const ['branchName'], fallback: ''));
+    if (name.isNotEmpty) {
+      return name;
+    }
+  }
+
+  return '';
 }
 
 String _readableSlug(String value) {

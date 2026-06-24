@@ -195,7 +195,7 @@ void main() {
 
     expect(gateway.requestedOtp, isTrue);
     expect(gateway.verifiedOtp, isTrue);
-    expect(find.text('Demo Motors'), findsOneWidget);
+    expect(find.text('DEMO MOTORS - COLOMBO'), findsOneWidget);
     expect(find.text('OVERVIEW'), findsOneWidget);
     expect(find.text('Appointments'), findsOneWidget);
     expect(find.text('UPCOMING'), findsOneWidget);
@@ -626,6 +626,7 @@ class _SmokeGateway implements MotornautsGateway {
             'status': 'REQUESTED',
             'startsAt': '2026-07-01T07:30:00.000Z',
             'requestedStartAt': '2026-07-01T07:30:00.000Z',
+            'branchName': 'Colombo',
             'vehicle': {
               'registrationNumber': 'CBY-6268',
               'make': 'Audi',

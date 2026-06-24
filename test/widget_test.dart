@@ -327,7 +327,12 @@ void main() {
     await _pumpUntilFound(tester, find.text('More'));
 
     await _tapVisible(tester, find.text('Local OBD utility'));
-    await _pumpUntilFound(tester, find.text('Local-only diagnostics'));
+    await _pumpUntilFound(tester, find.text('OBD diagnostics'));
+    expect(find.text('Live data'), findsOneWidget);
+    await _dragListUntilVisible(tester, find.text('Trouble codes'));
+    expect(find.text('Trouble codes'), findsOneWidget);
+    await _dragListUntilVisible(tester, find.text('Freeze frame'));
+    expect(find.text('Freeze frame'), findsOneWidget);
     await _goBack(tester);
     await _pumpUntilFound(tester, find.text('More'));
     await _tapVisible(tester, find.text('Local 3D viewer'));
@@ -999,6 +1004,15 @@ Future<void> _scrollUntilVisible(WidgetTester tester, Finder finder) async {
     scrollable: find.byType(Scrollable).last,
   );
   await tester.pumpAndSettle();
+}
+
+Future<void> _dragListUntilVisible(WidgetTester tester, Finder finder) async {
+  final list = find.byType(ListView).last;
+  for (var attempt = 0; attempt < 8 && finder.evaluate().isEmpty; attempt += 1) {
+    await tester.drag(list, const Offset(0, -320), warnIfMissed: false);
+    await tester.pumpAndSettle();
+  }
+  expect(finder, findsWidgets);
 }
 
 Future<void> _enterField(

@@ -14,6 +14,7 @@ import '../motornauts/idempotency.dart';
 import '../motornauts/link_parser.dart';
 import '../motornauts/motornauts_client.dart';
 import '../motornauts/payloads.dart';
+import '../obd/local_obd.dart';
 
 const double _mobileMaxContentWidth = 720;
 const EdgeInsets _mobilePagePadding = EdgeInsets.all(16);
@@ -4070,9 +4071,7 @@ class MoreScreen extends StatelessWidget {
           icon: Icons.sensors_outlined,
           onTap:
               () => Navigator.of(context).push<void>(
-                MaterialPageRoute<void>(
-                  builder: (_) => const LocalUtilityScreen(kind: 'OBD'),
-                ),
+                MaterialPageRoute<void>(builder: (_) => const LocalObdScreen()),
               ),
         ),
         DataListTile(

@@ -205,6 +205,7 @@ class MotornautsClient implements MotornautsGateway {
   final MotornautsConfig config;
   final http.Client _httpClient;
   final MotornautsSessionStore _sessionStore;
+  String? _sessionCookieFallback;
 
   @override
   Future<Map<String, dynamic>> getPublicTenantProfile({
@@ -810,7 +811,7 @@ class MotornautsClient implements MotornautsGateway {
     }
 
     if (auth) {
-      final cookie = await _sessionStore.readCookie();
+      final cookie = await _readSessionCookie();
       if (cookie != null && cookie.isNotEmpty) {
         request.headers['Cookie'] = cookie;
       }
@@ -819,11 +820,11 @@ class MotornautsClient implements MotornautsGateway {
     final response = await _send(request);
     final cookie = extractCustomerSessionCookie(response.headers);
     if (cookie != null) {
-      await _sessionStore.writeCookie(cookie);
+      await _writeSessionCookie(cookie);
     }
 
     if (response.statusCode == 401) {
-      await _sessionStore.clearCookie();
+      await _clearSessionCookie();
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -834,6 +835,36 @@ class MotornautsClient implements MotornautsGateway {
     }
 
     return response;
+  }
+
+  Future<String?> _readSessionCookie() async {
+    try {
+      final cookie = await _sessionStore.readCookie();
+      if (cookie != null && cookie.isNotEmpty) {
+        _sessionCookieFallback = cookie;
+      }
+      return cookie ?? _sessionCookieFallback;
+    } catch (_) {
+      return _sessionCookieFallback;
+    }
+  }
+
+  Future<void> _writeSessionCookie(String cookie) async {
+    _sessionCookieFallback = cookie;
+    try {
+      await _sessionStore.writeCookie(cookie);
+    } catch (_) {
+      return;
+    }
+  }
+
+  Future<void> _clearSessionCookie() async {
+    _sessionCookieFallback = null;
+    try {
+      await _sessionStore.clearCookie();
+    } catch (_) {
+      return;
+    }
   }
 
   Future<http.Response> _send(http.BaseRequest request) async {

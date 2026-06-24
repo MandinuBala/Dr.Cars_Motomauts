@@ -1034,10 +1034,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (_error != null)
             ErrorPanel(message: _error!, onRetry: _load)
           else ...[
-            CustomerProfileSummary(
-              profile: _profile ?? const {},
-              dashboardSummary: _summary,
-            ),
+            CustomerProfileSummary(profile: _profile ?? const {}),
             DashboardSummary(data: _summary),
           ],
         ],
@@ -1104,24 +1101,13 @@ class _HomeHeader extends StatelessWidget {
 }
 
 class CustomerProfileSummary extends StatelessWidget {
-  const CustomerProfileSummary({
-    required this.profile,
-    required this.dashboardSummary,
-    super.key,
-  });
+  const CustomerProfileSummary({required this.profile, super.key});
 
   final Map<String, dynamic> profile;
-  final Object? dashboardSummary;
 
   @override
   Widget build(BuildContext context) {
     final customer = _customerProfileFields(profile);
-    final summary = objectMap(dashboardSummary);
-    final customerId = valueText(customer, const [
-      'tenantCustomerId',
-      'customerId',
-      'id',
-    ], fallback: valueText(summary, const ['tenantCustomerId'], fallback: ''));
     final firstName = valueText(customer, const ['firstName'], fallback: '');
     final lastName = valueText(customer, const ['lastName'], fallback: '');
     final fullName =
@@ -1160,10 +1146,6 @@ class CustomerProfileSummary extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
-                  ],
-                  if (customerId.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    _CustomerIdChip(customerId: customerId),
                   ],
                 ],
               ),
@@ -1718,53 +1700,6 @@ class _AvatarMonogram extends StatelessWidget {
         style: Theme.of(context).textTheme.titleLarge?.copyWith(
           color: colors.accent,
           fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-}
-
-class _CustomerIdChip extends StatelessWidget {
-  const _CustomerIdChip({required this.customerId});
-
-  final String customerId;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = MotornautsThemeColors.of(context);
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: () async {
-        await Clipboard.setData(ClipboardData(text: customerId));
-        if (context.mounted) {
-          _showSnack(context, 'Customer ID copied.');
-        }
-      },
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 220),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-        decoration: BoxDecoration(
-          color: colors.elevated,
-          border: Border.all(color: colors.borderDefault),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.copy_outlined, size: 14, color: colors.textTertiary),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                _truncateMiddle(customerId, maxLength: 28),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  fontFamily: 'monospace',
-                  color: colors.textTertiary,
-                ),
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -5896,14 +5831,6 @@ String _initialsFor(String value) {
               ? parts.first.substring(1, 2).toUpperCase()
               : '');
   return '$first$second';
-}
-
-String _truncateMiddle(String value, {required int maxLength}) {
-  if (value.length <= maxLength || maxLength < 8) {
-    return value;
-  }
-  final edge = ((maxLength - 3) / 2).floor();
-  return '${value.substring(0, edge)}...${value.substring(value.length - edge)}';
 }
 
 DateTime? _dateTimeFromKeys(Map<String, dynamic> object, List<String> keys) {

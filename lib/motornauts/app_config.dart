@@ -11,7 +11,7 @@ class MotornautsConfig {
     return MotornautsConfig(
       apiBaseUrl: const String.fromEnvironment(
         'API_BASE_URL',
-        defaultValue: 'https://api.motornauts.com',
+        defaultValue: 'https://api.motornauts.com/api/v1',
       ),
       tenantSlug: const String.fromEnvironment(
         'TENANT_SLUG',

@@ -13,11 +13,11 @@ void main() {
     test('uses production tenant defaults when build defines are absent', () {
       final config = MotornautsConfig.fromEnvironment();
 
-      expect(config.apiBaseUrl, 'https://api.motornauts.com');
+      expect(config.apiBaseUrl, 'https://api.motornauts.com/api/v1');
       expect(config.tenantSlug, 'anton-auto-care');
       expect(
         config.tenantUri('public-profile').toString(),
-        'https://api.motornauts.com/t/anton-auto-care/public-profile',
+        'https://api.motornauts.com/api/v1/t/anton-auto-care/public-profile',
       );
     });
 

@@ -179,6 +179,10 @@ void main() {
     expect(gateway.requestedOtp, isTrue);
     expect(gateway.verifiedOtp, isTrue);
     expect(find.text('Dashboard summary'), findsOneWidget);
+    expect(find.text('Appointments'), findsOneWidget);
+    expect(find.text('Active service jobs'), findsOneWidget);
+    expect(find.textContaining('CBY-6268'), findsOneWidget);
+    expect(find.textContaining('"tenantId"'), findsNothing);
 
     await _tapVisible(tester, find.text('Garage'));
     await _pumpUntilFound(tester, find.text('Vehicle summary'));
@@ -524,7 +528,47 @@ class _SmokeGateway implements MotornautsGateway {
 
   @override
   Future<Object?> getCustomerDashboardSummary() async {
-    return const {'openAppointments': 1, 'vehicles': 1, 'repairOrders': 1};
+    return const {
+      'tenantId': 'pw_anton_auto_care_tenant_primary',
+      'tenantCustomerId': 'pw_anton_auto_care_tenant_customer_0220',
+      'upcomingAppointments': {
+        'count': 1,
+        'items': [
+          {
+            'id': 'cmqnr5biv000d0kl4cum23v1v',
+            'status': 'REQUESTED',
+            'startsAt': '2026-07-01T07:30:00.000Z',
+            'requestedStartAt': '2026-07-01T07:30:00.000Z',
+            'vehicle': {
+              'registrationNumber': 'CBY-6268',
+              'make': 'Audi',
+              'model': 'A3',
+              'year': 2024,
+            },
+            'servicePackage': {'name': 'Brake Service'},
+          },
+        ],
+      },
+      'activeServiceJobs': {
+        'count': 1,
+        'items': [
+          {
+            'id': 'pw_anton_auto_care_repair_order_0220',
+            'status': 'APPROVAL_RECEIVED',
+            'statusChangedAt': '2026-05-21T10:30:00.000Z',
+            'vehicle': {
+              'registrationNumber': 'EP ANT-1219',
+              'make': 'Nissan',
+              'model': 'Leaf',
+              'year': 2017,
+            },
+            'servicePackage': {'name': 'Diagnostic Scan'},
+          },
+        ],
+      },
+      'pendingApprovals': {'count': 0, 'items': []},
+      'pendingPayments': {'count': 0, 'items': []},
+    };
   }
 
   @override

@@ -1032,26 +1032,482 @@ class _HomeScreenState extends State<HomeScreen> {
           else ...[
             InfoCard(
               title: 'Customer profile',
-              child: KeyValueList(
-                object: _profile ?? const {},
-                keys: const [
-                  'tenantCustomerId',
-                  'firstName',
-                  'lastName',
-                  'email',
-                  'phone',
-                ],
+              child: CustomerProfileSummary(
+                profile: _profile ?? const {},
+                dashboardSummary: _summary,
               ),
             ),
             InfoCard(
               title: 'Dashboard summary',
-              child: JsonPreview(data: _summary),
+              child: DashboardSummary(data: _summary),
             ),
           ],
         ],
       ),
     );
   }
+}
+
+class CustomerProfileSummary extends StatelessWidget {
+  const CustomerProfileSummary({
+    required this.profile,
+    required this.dashboardSummary,
+    super.key,
+  });
+
+  final Map<String, dynamic> profile;
+  final Object? dashboardSummary;
+
+  @override
+  Widget build(BuildContext context) {
+    final customer = _customerProfileFields(profile);
+    final summary = objectMap(dashboardSummary);
+    final customerId = valueText(customer, const [
+      'tenantCustomerId',
+      'customerId',
+      'id',
+    ], fallback: valueText(summary, const ['tenantCustomerId'], fallback: ''));
+    final firstName = valueText(customer, const ['firstName'], fallback: '');
+    final lastName = valueText(customer, const ['lastName'], fallback: '');
+    final fullName =
+        [
+          firstName,
+          lastName,
+        ].where((part) => part.trim().isNotEmpty).join(' ').trim();
+    final rows =
+        <_DetailRow?>[
+          if (fullName.isNotEmpty)
+            _DetailRow(
+              label: 'Name',
+              value: fullName,
+              icon: Icons.person_outline,
+            ),
+          _detailRow(
+            label: 'Email',
+            icon: Icons.mail_outline,
+            object: customer,
+            keys: const ['email', 'emailAddress'],
+          ),
+          _detailRow(
+            label: 'Phone',
+            icon: Icons.phone_outlined,
+            object: customer,
+            keys: const ['phone', 'phoneNumber', 'contactNumber'],
+          ),
+          _detailRow(
+            label: 'City',
+            icon: Icons.location_city_outlined,
+            object: customer,
+            keys: const ['city'],
+          ),
+          if (customerId.isNotEmpty)
+            _DetailRow(
+              label: 'Customer ID',
+              value: customerId,
+              icon: Icons.badge_outlined,
+            ),
+        ].whereType<_DetailRow>().toList();
+
+    if (rows.isEmpty) {
+      return const Text('No customer profile details returned.');
+    }
+    return _DetailList(rows: rows);
+  }
+}
+
+class DashboardSummary extends StatelessWidget {
+  const DashboardSummary({required this.data, super.key});
+
+  final Object? data;
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = objectMap(data);
+    if (summary.isEmpty) {
+      return const Text('No dashboard summary returned.');
+    }
+    if (summary['stale'] == true || summary['unavailable'] == true) {
+      return _InlineNotice(
+        icon: Icons.cloud_off_outlined,
+        message: valueText(summary, const [
+          'message',
+        ], fallback: 'Dashboard summary is unavailable.'),
+      );
+    }
+
+    final metrics =
+        [
+          _metric(
+            label: 'Appointments',
+            icon: Icons.event_available_outlined,
+            count: _summaryCount(summary, const [
+              'upcomingAppointments',
+              'openAppointments',
+              'appointments',
+            ]),
+          ),
+          _metric(
+            label: 'Vehicles',
+            icon: Icons.directions_car_outlined,
+            count: _summaryCount(summary, const ['vehicles', 'vehicleSummary']),
+          ),
+          _metric(
+            label: 'Service jobs',
+            icon: Icons.build_circle_outlined,
+            count: _summaryCount(summary, const [
+              'activeServiceJobs',
+              'repairOrders',
+              'activeRepairOrders',
+            ]),
+          ),
+          _metric(
+            label: 'Approvals',
+            icon: Icons.fact_check_outlined,
+            count: _summaryCount(summary, const [
+              'pendingApprovals',
+              'pendingApp',
+              'pendingEstimates',
+              'pendingApprovalRequests',
+            ]),
+          ),
+          _metric(
+            label: 'Payments',
+            icon: Icons.payments_outlined,
+            count: _summaryCount(summary, const [
+              'pendingPayments',
+              'unpaidInvoices',
+              'invoicesDue',
+            ]),
+          ),
+        ].whereType<_DashboardMetricData>().toList();
+
+    final sections =
+        [
+          _DashboardSectionData(
+            title: 'Upcoming appointments',
+            icon: Icons.event_available_outlined,
+            items: _summaryItems(summary, const [
+              'upcomingAppointments',
+              'openAppointments',
+              'appointments',
+            ]),
+            itemBuilder: _appointmentRecord,
+          ),
+          _DashboardSectionData(
+            title: 'Active service jobs',
+            icon: Icons.build_circle_outlined,
+            items: _summaryItems(summary, const [
+              'activeServiceJobs',
+              'repairOrders',
+              'activeRepairOrders',
+            ]),
+            itemBuilder: _serviceJobRecord,
+          ),
+          _DashboardSectionData(
+            title: 'Pending approvals',
+            icon: Icons.fact_check_outlined,
+            items: _summaryItems(summary, const [
+              'pendingApprovals',
+              'pendingApp',
+              'pendingEstimates',
+              'pendingApprovalRequests',
+            ]),
+            itemBuilder: _approvalRecord,
+          ),
+          _DashboardSectionData(
+            title: 'Payments',
+            icon: Icons.receipt_long_outlined,
+            items: _summaryItems(summary, const [
+              'pendingPayments',
+              'unpaidInvoices',
+              'invoicesDue',
+            ]),
+            itemBuilder: _paymentRecord,
+          ),
+        ].where((section) => section.items.isNotEmpty).toList();
+
+    if (metrics.isEmpty && sections.isEmpty) {
+      return const Text('No active customer activity returned.');
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (metrics.isNotEmpty) _DashboardMetricsGrid(metrics: metrics),
+        if (metrics.isNotEmpty && sections.isNotEmpty)
+          const SizedBox(height: 16),
+        for (final section in sections) _DashboardSection(section: section),
+      ],
+    );
+  }
+}
+
+class _DashboardMetricsGrid extends StatelessWidget {
+  const _DashboardMetricsGrid({required this.metrics});
+
+  final List<_DashboardMetricData> metrics;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 560 ? 3 : 2;
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: metrics.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            mainAxisExtent: 82,
+          ),
+          itemBuilder: (context, index) {
+            return _DashboardMetric(metric: metrics[index]);
+          },
+        );
+      },
+    );
+  }
+}
+
+class _DashboardMetric extends StatelessWidget {
+  const _DashboardMetric({required this.metric});
+
+  final _DashboardMetricData metric;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = MotornautsThemeColors.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.accentSubtle,
+        border: Border.all(color: colors.borderDefault),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Row(
+          children: [
+            Icon(metric.icon, color: colors.accent),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    metric.count.toString(),
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  Text(
+                    metric.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelMedium,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardSection extends StatelessWidget {
+  const _DashboardSection({required this.section});
+
+  final _DashboardSectionData section;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(section.icon, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  section.title,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          for (final item in section.items.take(3))
+            _DashboardRecord(record: section.itemBuilder(item)),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashboardRecord extends StatelessWidget {
+  const _DashboardRecord({required this.record});
+
+  final _DashboardRecordData record;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = MotornautsThemeColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(color: colors.borderDefault),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(record.icon, color: colors.textSecondary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      record.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    if (record.subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        record.subtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                    if (record.status.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      _StatusBadge(record.status),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DetailList extends StatelessWidget {
+  const _DetailList({required this.rows});
+
+  final List<_DetailRow> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (final row in rows)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(row.icon, size: 18),
+                const SizedBox(width: 10),
+                SizedBox(
+                  width: 92,
+                  child: Text(
+                    row.label,
+                    style: Theme.of(context).textTheme.labelMedium,
+                  ),
+                ),
+                Expanded(child: Text(row.value)),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _InlineNotice extends StatelessWidget {
+  const _InlineNotice({required this.icon, required this.message});
+
+  final IconData icon;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = MotornautsThemeColors.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: colors.textSecondary),
+        const SizedBox(width: 10),
+        Expanded(child: Text(message)),
+      ],
+    );
+  }
+}
+
+class _DashboardMetricData {
+  const _DashboardMetricData({
+    required this.label,
+    required this.icon,
+    required this.count,
+  });
+
+  final String label;
+  final IconData icon;
+  final int count;
+}
+
+class _DashboardSectionData {
+  const _DashboardSectionData({
+    required this.title,
+    required this.icon,
+    required this.items,
+    required this.itemBuilder,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<Map<String, dynamic>> items;
+  final _DashboardRecordData Function(Map<String, dynamic>) itemBuilder;
+}
+
+class _DashboardRecordData {
+  const _DashboardRecordData({
+    required this.title,
+    required this.subtitle,
+    required this.status,
+    required this.icon,
+  });
+
+  final String title;
+  final String subtitle;
+  final String status;
+  final IconData icon;
+}
+
+class _DetailRow {
+  const _DetailRow({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
 }
 
 class GarageScreen extends StatefulWidget {
@@ -4289,6 +4745,239 @@ class JsonPreview extends StatelessWidget {
       style: Theme.of(context).textTheme.bodySmall?.copyWith(height: 1.35),
     );
   }
+}
+
+Map<String, dynamic> _customerProfileFields(Map<String, dynamic> profile) {
+  return {
+    ...profile,
+    ...objectMap(profile['customer']),
+    ...objectMap(profile['tenantCustomer']),
+    ...objectMap(profile['profile']),
+    ...objectMap(profile['user']),
+    ...objectMap(profile['account']),
+  };
+}
+
+_DetailRow? _detailRow({
+  required String label,
+  required IconData icon,
+  required Map<String, dynamic> object,
+  required List<String> keys,
+}) {
+  final value = valueText(object, keys, fallback: '');
+  if (value.isEmpty) {
+    return null;
+  }
+  return _DetailRow(label: label, value: value, icon: icon);
+}
+
+_DashboardMetricData? _metric({
+  required String label,
+  required IconData icon,
+  required int? count,
+}) {
+  if (count == null) {
+    return null;
+  }
+  return _DashboardMetricData(label: label, icon: icon, count: count);
+}
+
+int? _summaryCount(Map<String, dynamic> summary, List<String> keys) {
+  for (final key in keys) {
+    final value = summary[key];
+    if (value is num) {
+      return value.toInt();
+    }
+    if (value is List) {
+      return value.length;
+    }
+    final map = objectMap(value);
+    if (map.isEmpty) {
+      continue;
+    }
+    final count = map['count'];
+    if (count is num) {
+      return count.toInt();
+    }
+    final parsedCount = int.tryParse(count?.toString() ?? '');
+    if (parsedCount != null) {
+      return parsedCount;
+    }
+    final items = objectList(map, keys: const ['items', 'results', 'data']);
+    if (items.isNotEmpty) {
+      return items.length;
+    }
+  }
+  return null;
+}
+
+List<Map<String, dynamic>> _summaryItems(
+  Map<String, dynamic> summary,
+  List<String> keys,
+) {
+  for (final key in keys) {
+    final items = objectList(
+      summary[key],
+      keys: const ['items', 'results', 'data'],
+    );
+    if (items.isNotEmpty) {
+      return items;
+    }
+  }
+  return const [];
+}
+
+_DashboardRecordData _appointmentRecord(Map<String, dynamic> item) {
+  final vehicle = objectMap(item['vehicle']);
+  final servicePackage = objectMap(item['servicePackage']);
+  final time = _dateText(
+    valueText(item, const [
+      'confirmedStartAt',
+      'rescheduledStartAt',
+      'requestedStartAt',
+      'startsAt',
+    ], fallback: ''),
+  );
+  final serviceName = valueText(
+    servicePackage,
+    const ['name'],
+    fallback: valueText(item, const [
+      'servicePackageName',
+      'serviceName',
+    ], fallback: 'Service'),
+  );
+  final vehicleText = _vehicleSummaryText(
+    vehicle,
+    fallback: valueText(item, const [
+      'vehicleRegistrationNumber',
+      'registrationNumber',
+      'vehicleId',
+    ], fallback: 'Vehicle'),
+  );
+  return _DashboardRecordData(
+    title: time.isEmpty ? serviceName : time,
+    subtitle: _joinSummaryParts([vehicleText, serviceName]),
+    status: valueText(item, const ['status'], fallback: ''),
+    icon: Icons.event_note_outlined,
+  );
+}
+
+_DashboardRecordData _serviceJobRecord(Map<String, dynamic> item) {
+  final vehicle = objectMap(item['vehicle']);
+  final servicePackage = objectMap(item['servicePackage']);
+  final serviceName = valueText(
+    servicePackage,
+    const ['name'],
+    fallback: valueText(item, const [
+      'servicePackageName',
+      'serviceName',
+    ], fallback: 'Service job'),
+  );
+  final changedAt = _dateText(
+    valueText(item, const [
+      'statusChangedAt',
+      'updatedAt',
+      'checkedInAt',
+    ], fallback: ''),
+  );
+  final vehicleText = _vehicleSummaryText(
+    vehicle,
+    fallback: valueText(item, const [
+      'vehicleRegistrationNumber',
+      'registrationNumber',
+      'vehicleId',
+    ], fallback: ''),
+  );
+  return _DashboardRecordData(
+    title: valueText(item, const [
+      'repairOrderNumber',
+      'number',
+      'id',
+    ], fallback: serviceName),
+    subtitle: _joinSummaryParts([vehicleText, serviceName, changedAt]),
+    status: valueText(item, const ['status', 'workflowStatus'], fallback: ''),
+    icon: Icons.build_circle_outlined,
+  );
+}
+
+_DashboardRecordData _approvalRecord(Map<String, dynamic> item) {
+  final amount = _moneyText(item);
+  final vehicleText = _vehicleSummaryText(
+    objectMap(item['vehicle']),
+    fallback: valueText(item, const [
+      'vehicleRegistrationNumber',
+      'registrationNumber',
+    ], fallback: ''),
+  );
+  return _DashboardRecordData(
+    title: valueText(item, const [
+      'estimateNumber',
+      'number',
+      'title',
+      'id',
+    ], fallback: 'Approval needed'),
+    subtitle: _joinSummaryParts([if (amount != '-') amount, vehicleText]),
+    status: valueText(item, const ['status'], fallback: 'PENDING'),
+    icon: Icons.fact_check_outlined,
+  );
+}
+
+_DashboardRecordData _paymentRecord(Map<String, dynamic> item) {
+  final amount = _moneyText(item);
+  return _DashboardRecordData(
+    title: valueText(item, const [
+      'invoiceNumber',
+      'paymentRequestId',
+      'number',
+      'id',
+    ], fallback: 'Payment'),
+    subtitle: amount == '-' ? '' : amount,
+    status: valueText(item, const ['status', 'paymentStatus'], fallback: ''),
+    icon: Icons.receipt_long_outlined,
+  );
+}
+
+String _vehicleSummaryText(
+  Map<String, dynamic> vehicle, {
+  String fallback = '',
+}) {
+  final registration = valueText(vehicle, const [
+    'registrationNumber',
+    'plateNumber',
+    'vehicleNumber',
+  ], fallback: '');
+  final make = valueText(vehicle, const ['make'], fallback: '');
+  final model = valueText(vehicle, const ['model'], fallback: '');
+  final year = valueText(vehicle, const ['year'], fallback: '');
+  final name = _joinSummaryParts([make, model, year], separator: ' ');
+  if (registration.isNotEmpty && name.isNotEmpty) {
+    return '$registration - $name';
+  }
+  if (registration.isNotEmpty) {
+    return registration;
+  }
+  if (name.isNotEmpty) {
+    return name;
+  }
+  return fallback;
+}
+
+String _dateText(String value) {
+  if (value.isEmpty) {
+    return '';
+  }
+  final parsed = DateTime.tryParse(value);
+  if (parsed == null) {
+    return value;
+  }
+  return DateFormat('MMM d, h:mm a').format(parsed.toLocal());
+}
+
+String _joinSummaryParts(Iterable<String> parts, {String separator = ' - '}) {
+  return parts
+      .map((part) => part.trim())
+      .where((part) => part.isNotEmpty && part != '-')
+      .join(separator);
 }
 
 DropdownMenuItem<String> _dropdownItem(String value) {

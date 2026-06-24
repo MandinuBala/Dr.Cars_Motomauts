@@ -231,6 +231,8 @@ class _BootstrapScreenState extends State<BootstrapScreen> {
         if (error.type != MotornautsErrorType.unauthenticated) {
           signedIn = false;
         }
+      } catch (_) {
+        signedIn = false;
       }
       if (!mounted) {
         return;

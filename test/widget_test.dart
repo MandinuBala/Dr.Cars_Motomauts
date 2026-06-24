@@ -95,6 +95,23 @@ void main() {
     expect(find.text('Tenant unavailable'), findsOneWidget);
   });
 
+  testWidgets('bootstrap ignores local session restore failures', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MotornautsApp(
+        config: _config,
+        client: _BrokenSessionRestoreGateway(),
+        enableLinkHandling: false,
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tenant unavailable'), findsNothing);
+    expect(find.text('OTP Login'), findsOneWidget);
+  });
+
   testWidgets('OTP login requests and verifies a challenge', (tester) async {
     final gateway = _OtpGateway();
     await tester.pumpWidget(
@@ -374,6 +391,33 @@ class _UnavailableTenantGateway implements MotornautsGateway {
       statusCode: 404,
       message: 'Tenant not found.',
     );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _BrokenSessionRestoreGateway implements MotornautsGateway {
+  @override
+  MotornautsConfig get config => _config;
+
+  @override
+  Future<Map<String, dynamic>> getPublicTenantProfile({
+    String? tenantSlug,
+  }) async {
+    return const {
+      'tenant': {'displayName': 'Demo Motors'},
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> getCustomerSession() {
+    throw StateError('Secure storage unavailable.');
+  }
+
+  @override
+  Future<Map<String, dynamic>> getSelfRegistrationAvailability() async {
+    return const {'available': true, 'publicTermsCopy': 'Demo terms'};
   }
 
   @override

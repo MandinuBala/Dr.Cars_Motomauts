@@ -14,17 +14,17 @@ void main() {
     final dark = buildMotornautsTheme(Brightness.dark);
     final darkColors = dark.extension<MotornautsThemeColors>()!;
 
-    expect(light.scaffoldBackgroundColor, const Color(0xFFFAFAF7));
-    expect(light.cardTheme.color, const Color(0xFFFFFFFF));
-    expect(light.colorScheme.primary, const Color(0xFFFF5A1F));
-    expect(lightColors.accentHover, const Color(0xFFE54A14));
-    expect(lightColors.secondaryAccent, const Color(0xFF1E2A4A));
+    expect(light.scaffoldBackgroundColor, const Color(0xFFF7F3EA));
+    expect(light.cardTheme.color, const Color(0xFFFFFCF5));
+    expect(light.colorScheme.primary, const Color(0xFFA65F12));
+    expect(lightColors.accentHover, const Color(0xFF8F4E0B));
+    expect(lightColors.secondaryAccent, const Color(0xFF383B40));
 
-    expect(dark.scaffoldBackgroundColor, const Color(0xFF000000));
-    expect(dark.cardTheme.color, const Color(0xFF101014));
-    expect(dark.colorScheme.primary, const Color(0xFF00E5FF));
-    expect(darkColors.accentHover, const Color(0xFF33ECFF));
-    expect(darkColors.secondaryAccent, const Color(0xFFFF2D95));
+    expect(dark.scaffoldBackgroundColor, const Color(0xFF0B0B0C));
+    expect(dark.cardTheme.color, const Color(0xFF171719));
+    expect(dark.colorScheme.primary, const Color(0xFFD98A21));
+    expect(darkColors.accentHover, const Color(0xFFF0A23A));
+    expect(darkColors.secondaryAccent, const Color(0xFF6F767F));
 
     expect(light.navigationBarTheme.height, 72);
     expect(
@@ -35,11 +35,11 @@ void main() {
       (light.inputDecorationTheme.focusedBorder! as OutlineInputBorder)
           .borderSide
           .color,
-      const Color(0xFFFF5A1F),
+      const Color(0xFFA65F12),
     );
     expect(
       dark.filledButtonTheme.style!.backgroundColor!.resolve({}),
-      const Color(0xFF00E5FF),
+      const Color(0xFFD98A21),
     );
     expect(
       light.filledButtonTheme.style!.minimumSize!.resolve({}),
@@ -93,6 +93,23 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Tenant unavailable'), findsOneWidget);
+  });
+
+  testWidgets('bootstrap ignores local session restore failures', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MotornautsApp(
+        config: _config,
+        client: _BrokenSessionRestoreGateway(),
+        enableLinkHandling: false,
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tenant unavailable'), findsNothing);
+    expect(find.text('OTP Login'), findsOneWidget);
   });
 
   testWidgets('OTP login requests and verifies a challenge', (tester) async {
@@ -174,17 +191,36 @@ void main() {
     await _pumpUntilFound(tester, _fieldWithLabel('6-digit code'));
     await tester.enterText(_fieldWithLabel('6-digit code'), '123456');
     await _tapVisible(tester, find.text('Verify and continue'));
-    await _pumpUntilFound(tester, find.text('Customer profile'));
+    await _pumpUntilFound(tester, find.textContaining('Ada'));
 
     expect(gateway.requestedOtp, isTrue);
     expect(gateway.verifiedOtp, isTrue);
-    expect(find.text('Dashboard summary'), findsOneWidget);
+    expect(find.text('DEMO MOTORS - COLOMBO'), findsOneWidget);
+    expect(find.text('OVERVIEW'), findsOneWidget);
+    expect(find.text('Appointments'), findsOneWidget);
+    expect(find.text('UPCOMING'), findsOneWidget);
+    expect(find.text('Active service jobs'), findsOneWidget);
+    expect(find.textContaining('CBY-6268'), findsOneWidget);
+    expect(find.textContaining('"tenantId"'), findsNothing);
 
     await _tapVisible(tester, find.text('Garage'));
     await _pumpUntilFound(tester, find.text('Vehicle summary'));
+    expect(find.text('Total'), findsOneWidget);
+    expect(find.text('Approved'), findsOneWidget);
+    expect(
+      find.text(
+        'Live vehicle summary is unavailable. Showing garage list totals.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('"unavailable"'), findsNothing);
     expect(find.text('CAB-1234'), findsOneWidget);
     await _tapVisible(tester, find.text('CAB-1234'));
     await _pumpUntilFound(tester, find.text('Upload document'));
+    expect(find.text('Registration certificate'), findsOneWidget);
+    expect(find.text('Choose file'), findsOneWidget);
+    expect(find.text('REGISTRATION_CERTIFICATE'), findsNothing);
+    expect(find.textContaining('"vehicleId"'), findsNothing);
     await _scrollUntilVisible(tester, find.byTooltip('View'));
     await _tapVisible(tester, find.byTooltip('View').first);
     expect(gateway.viewedDocument, isTrue);
@@ -209,10 +245,15 @@ void main() {
     expect(gateway.updatedVehicle, isTrue);
 
     await _tapVisible(tester, find.text('Book'));
-    await _pumpUntilFound(tester, find.text('New appointment'));
+    await _pumpUntilFound(tester, find.text('New booking'));
+    expect(find.text('VEHICLE & LOCATION'), findsOneWidget);
+    expect(find.text('Tap to change'), findsOneWidget);
     await _enterField(tester, 'Mileage at booking', '12400');
-    await _enterField(tester, 'Complaints', 'Brake noise');
-    await _enterField(tester, 'Notes', 'Use sample smoke test data');
+    await _enterField(
+      tester,
+      'Notes / complaints',
+      'Brake noise. Use sample smoke test data',
+    );
     await _tapVisible(tester, find.text('Check availability'));
     expect(gateway.checkedAvailability, isTrue);
     await _tapVisible(tester, find.text('Request appointment'));
@@ -220,6 +261,7 @@ void main() {
     await _pumpUntilFound(tester, find.text('2026-07-02T09:00:00Z'));
     await _tapVisible(tester, find.text('2026-07-02T09:00:00Z'));
     await _pumpUntilFound(tester, find.text('Appointment'));
+    expect(find.textContaining('"appointmentId"'), findsNothing);
     await _tapVisible(tester, find.text('Cancel appointment'));
     expect(gateway.transitionedAppointment, isTrue);
     await _goBack(tester);
@@ -229,10 +271,12 @@ void main() {
     await _pumpUntilFound(tester, find.text('Repair orders'));
     await _tapVisible(tester, find.text('RO-1001'));
     await _pumpUntilFound(tester, find.text('Repair order'));
+    expect(find.textContaining('"repairOrderId"'), findsNothing);
     await _tapVisible(tester, find.text('Open service-history PDF'));
     expect(gateway.requestedServiceHistoryPdf, isTrue);
     await _tapVisible(tester, find.text('EST-1001'));
     await _pumpUntilFound(tester, find.text('Estimate'));
+    expect(find.textContaining('"estimateId"'), findsNothing);
     await _tapVisible(tester, find.text('Open estimate PDF'));
     expect(gateway.requestedEstimatePdf, isTrue);
     await _tapVisible(tester, find.text('Approve'));
@@ -246,6 +290,7 @@ void main() {
 
     await _tapVisible(tester, find.text('INV-1001'));
     await _pumpUntilFound(tester, find.text('Invoice'));
+    expect(find.textContaining('"invoiceId"'), findsNothing);
     await _tapVisible(tester, find.text('Open invoice PDF'));
     expect(gateway.requestedInvoicePdf, isTrue);
     await _goBack(tester);
@@ -253,9 +298,20 @@ void main() {
 
     await _tapVisible(tester, find.text('More'));
     await _pumpUntilFound(tester, find.text('Profile'));
-    await _tapVisible(tester, find.text('Profile').first);
-    await _pumpUntilFound(tester, find.text('Save profile'));
-    await _enterField(tester, 'Phone', '+94770000001');
+    await _tapVisible(tester, find.widgetWithText(DataListTile, 'Profile'));
+    await _pumpUntilFound(tester, find.text('Verified account'));
+    expect(find.text('Verified account'), findsOneWidget);
+    await _scrollUntilVisible(tester, _fieldWithLabel('First name'));
+    expect(_fieldValue(tester, 'First name'), 'Ada');
+    expect(_fieldValue(tester, 'Last name'), 'Lovelace');
+    await _scrollUntilVisible(tester, _fieldWithLabel('Phone number'));
+    expect(find.text('+94'), findsOneWidget);
+    expect(_fieldValue(tester, 'Phone number'), '770000000');
+    await _scrollUntilVisible(tester, _fieldWithLabel('Street'));
+    expect(_fieldValue(tester, 'Street'), '42 Engine Lane');
+    expect(_fieldValue(tester, 'City'), 'Colombo');
+    await _enterField(tester, 'Phone number', '770000001');
+    await _scrollUntilVisible(tester, find.text('Save profile'));
     await _tapVisible(tester, find.text('Save profile'));
     expect(gateway.updatedProfile, isTrue);
     await _goBack(tester);
@@ -281,6 +337,7 @@ void main() {
     );
     await _tapVisible(tester, find.text('Open'));
     await _pumpUntilFound(tester, find.text('Feedback'));
+    expect(find.textContaining('"repairOrderNumber"'), findsNothing);
     await _enterField(tester, 'Comment', 'Good sample smoke test service');
     await _tapVisible(tester, find.text('Submit feedback'));
     expect(gateway.submittedFeedback, isTrue);
@@ -300,7 +357,12 @@ void main() {
     await _pumpUntilFound(tester, find.text('More'));
 
     await _tapVisible(tester, find.text('Local OBD utility'));
-    await _pumpUntilFound(tester, find.text('Local-only diagnostics'));
+    await _pumpUntilFound(tester, find.text('OBD diagnostics'));
+    expect(find.text('Live data'), findsOneWidget);
+    await _dragListUntilVisible(tester, find.text('Trouble codes'));
+    expect(find.text('Trouble codes'), findsOneWidget);
+    await _dragListUntilVisible(tester, find.text('Freeze frame'));
+    expect(find.text('Freeze frame'), findsOneWidget);
     await _goBack(tester);
     await _pumpUntilFound(tester, find.text('More'));
     await _tapVisible(tester, find.text('Local 3D viewer'));
@@ -330,6 +392,33 @@ class _UnavailableTenantGateway implements MotornautsGateway {
       statusCode: 404,
       message: 'Tenant not found.',
     );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _BrokenSessionRestoreGateway implements MotornautsGateway {
+  @override
+  MotornautsConfig get config => _config;
+
+  @override
+  Future<Map<String, dynamic>> getPublicTenantProfile({
+    String? tenantSlug,
+  }) async {
+    return const {
+      'tenant': {'displayName': 'Demo Motors'},
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> getCustomerSession() {
+    throw StateError('Secure storage unavailable.');
+  }
+
+  @override
+  Future<Map<String, dynamic>> getSelfRegistrationAvailability() async {
+    return const {'available': true, 'publicTermsCopy': 'Demo terms'};
   }
 
   @override
@@ -505,12 +594,14 @@ class _SmokeGateway implements MotornautsGateway {
   @override
   Future<Map<String, dynamic>> getMyCustomerProfile() async {
     return const {
-      'tenantCustomerId': 'cus_1',
-      'firstName': 'Ada',
-      'lastName': 'Lovelace',
-      'email': 'ada@example.com',
-      'phone': '+94770000000',
-      'city': 'Colombo',
+      'customerProfile': {
+        'tenantCustomerId': 'cus_1',
+        'firstName': 'Ada',
+        'lastName': 'Lovelace',
+        'email': 'ada@example.com',
+        'phoneNumber': '+94770000000',
+        'address': {'addressLine1': '42 Engine Lane', 'city': 'Colombo'},
+      },
     };
   }
 
@@ -524,7 +615,48 @@ class _SmokeGateway implements MotornautsGateway {
 
   @override
   Future<Object?> getCustomerDashboardSummary() async {
-    return const {'openAppointments': 1, 'vehicles': 1, 'repairOrders': 1};
+    return const {
+      'tenantId': 'pw_anton_auto_care_tenant_primary',
+      'tenantCustomerId': 'pw_anton_auto_care_tenant_customer_0220',
+      'upcomingAppointments': {
+        'count': 1,
+        'items': [
+          {
+            'id': 'cmqnr5biv000d0kl4cum23v1v',
+            'status': 'REQUESTED',
+            'startsAt': '2026-07-01T07:30:00.000Z',
+            'requestedStartAt': '2026-07-01T07:30:00.000Z',
+            'branchName': 'Colombo',
+            'vehicle': {
+              'registrationNumber': 'CBY-6268',
+              'make': 'Audi',
+              'model': 'A3',
+              'year': 2024,
+            },
+            'servicePackage': {'name': 'Brake Service'},
+          },
+        ],
+      },
+      'activeServiceJobs': {
+        'count': 1,
+        'items': [
+          {
+            'id': 'pw_anton_auto_care_repair_order_0220',
+            'status': 'APPROVAL_RECEIVED',
+            'statusChangedAt': '2026-05-21T10:30:00.000Z',
+            'vehicle': {
+              'registrationNumber': 'EP ANT-1219',
+              'make': 'Nissan',
+              'model': 'Leaf',
+              'year': 2017,
+            },
+            'servicePackage': {'name': 'Diagnostic Scan'},
+          },
+        ],
+      },
+      'pendingApprovals': {'count': 0, 'items': []},
+      'pendingPayments': {'count': 0, 'items': []},
+    };
   }
 
   @override
@@ -539,7 +671,11 @@ class _SmokeGateway implements MotornautsGateway {
 
   @override
   Future<Object?> getVehicleSummary() async {
-    return const {'active': 1, 'pendingDocuments': 0};
+    throw MotornautsApiException(
+      type: MotornautsErrorType.notFound,
+      statusCode: 404,
+      message: 'The requested resource is not available.',
+    );
   }
 
   @override
@@ -928,6 +1064,19 @@ Future<void> _scrollUntilVisible(WidgetTester tester, Finder finder) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> _dragListUntilVisible(WidgetTester tester, Finder finder) async {
+  final list = find.byType(ListView).last;
+  for (
+    var attempt = 0;
+    attempt < 8 && finder.evaluate().isEmpty;
+    attempt += 1
+  ) {
+    await tester.drag(list, const Offset(0, -320), warnIfMissed: false);
+    await tester.pumpAndSettle();
+  }
+  expect(finder, findsWidgets);
+}
+
 Future<void> _enterField(
   WidgetTester tester,
   String label,
@@ -947,6 +1096,11 @@ Finder _fieldWithLabel(String label) {
     }
     return false;
   });
+}
+
+String _fieldValue(WidgetTester tester, String label) {
+  final field = tester.widget<TextField>(_fieldWithLabel(label).first);
+  return field.controller?.text ?? '';
 }
 
 Future<void> _pumpUntilFound(

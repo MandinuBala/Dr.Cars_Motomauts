@@ -53,6 +53,47 @@ void main() {
     expect(requests.first.url.path, '/api/v1/t/demo/customer-auth/otp/verify');
   });
 
+  test('uses in-memory cookie fallback when session storage fails', () async {
+    final requests = <http.Request>[];
+    final client = MotornautsClient(
+      config: MotornautsConfig(
+        apiBaseUrl: 'https://api.example.com/api/v1',
+        tenantSlug: 'demo',
+      ),
+      sessionStore: _ThrowingSessionStore(),
+      httpClient: MockClient((request) async {
+        requests.add(request);
+        if (request.url.path.endsWith('/customer-auth/otp/verify')) {
+          return http.Response(
+            jsonEncode({
+              'data': {
+                'session': {'id': 's_1', 'expiresAt': '2026-06-25T00:00:00Z'},
+              },
+            }),
+            200,
+            headers: {
+              'set-cookie': 'motornauts_customer_session=session_1; HttpOnly',
+            },
+          );
+        }
+        return http.Response(
+          jsonEncode({
+            'data': {'id': 'session_1'},
+          }),
+          200,
+        );
+      }),
+    );
+
+    await client.verifyOtp(challengeId: 'challenge_1', code: '123456');
+    await client.getCustomerSession();
+
+    expect(
+      requests.last.headers['Cookie'],
+      'motornauts_customer_session=session_1',
+    );
+  });
+
   test('clears cookie on 401 and exposes typed API error', () async {
     final store = MemoryMotornautsSessionStore();
     await store.writeCookie('motornauts_customer_session=session_1');
@@ -147,4 +188,21 @@ void main() {
     expect(paths.join('\n'), isNot(contains('/service-receipts')));
     expect(paths.join('\n'), isNot(contains('/service-records')));
   });
+}
+
+class _ThrowingSessionStore implements MotornautsSessionStore {
+  @override
+  Future<String?> readCookie() {
+    throw StateError('Session storage read failed.');
+  }
+
+  @override
+  Future<void> writeCookie(String cookie) {
+    throw StateError('Session storage write failed.');
+  }
+
+  @override
+  Future<void> clearCookie() {
+    throw StateError('Session storage clear failed.');
+  }
 }

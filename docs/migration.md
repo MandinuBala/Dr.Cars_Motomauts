@@ -6,7 +6,7 @@ The Flutter app has been migrated from the legacy DR.Cars role-based API to the 
 
 Default build configuration:
 
-- `API_BASE_URL=https://api.motornauts.com`
+- `API_BASE_URL=https://api.motornauts.com/api/v1`
 - `TENANT_SLUG=anton-auto-care`
 - `REQUEST_TIMEOUT_SECONDS=30`
 - `ENABLE_SSE_TIMELINE=false`
@@ -39,7 +39,9 @@ All values are overridable with `--dart-define`. Android emulator users should r
   - Compliance request intake.
   - Tenant name rendering from the nested `tenant` object returned by the live public profile endpoint.
   - Garage list rendering now tolerates a forbidden or unavailable vehicle-summary response.
-  - Local-only OBD and 3D placeholder screens that do not sync to Motornauts.
+  - Local-only OBD utility and 3D placeholder screens that do not sync to Motornauts.
+  - Rewritten OBD diagnostics screen for local BLE adapters:
+    adapter scan/connect/disconnect, local vehicle selection, ELM327 session setup, live PID reads, stored/pending DTC reads, mode 04 clearing, mode 02 freeze-frame reads, DTC repair hints, demo adapter, and a local command log.
 - Native support.
   - Android `motornauts://` and placeholder HTTPS deep-link filters.
   - iOS `motornauts` URL scheme.
@@ -48,13 +50,14 @@ All values are overridable with `--dart-define`. Android emulator users should r
 - Tests.
   - Config/path generation, API error parsing, cookie extraction, payload compaction, idempotency keys, link parsing.
   - API client session cookie behavior, 401 clearing, and customer endpoint path coverage.
+  - Local OBD PID parsing, DTC decoding, freeze-frame decoding, and demo adapter command flow.
   - Widget coverage for tenant unavailable, OTP login, and registration terms gating.
   - Gated live integration test for tenant bootstrap, OTP login, Home, Garage, and Service screens.
 
 ## Changed
 
 - `lib/main.dart` now starts the Motornauts customer app and no longer routes by legacy DR.Cars roles.
-- `pubspec.yaml` now keeps only customer-app dependencies: HTTP, secure storage, file picker, app links, URL launcher, WebView, shared preferences, and Flutter basics.
+- `pubspec.yaml` now keeps only customer-app dependencies: HTTP, secure storage, file picker, app links, URL launcher, WebView, BLE OBD access, shared preferences, and Flutter basics.
 - Android/iOS platform files were updated for the new dependency set and verified builds.
 - The app now treats Motornauts IDs as canonical IDs after API responses, especially `tenantCustomerId`, `vehicleId`, `appointmentId`, `repairOrderId`, `estimateId`, and `invoiceId`.
 - Payment provider handoff uses only the server-returned `providerHandoff.action`, `method`, and `fields`. The app does not construct provider payloads.
@@ -68,11 +71,11 @@ All values are overridable with `--dart-define`. Android emulator users should r
 - Direct multipart document upload to `/documents/upload`.
 - Legacy service receipt and manual service record flows.
 - Hard-coded DR.Cars Railway and `localhost:5000` API defaults.
-- Google Maps, geolocation, ML Kit OCR, Bluetooth OBD package usage, share, toast, old notification, and old calendar dependencies from the active app.
+- Google Maps, geolocation, ML Kit OCR, legacy Android-only Bluetooth Serial OBD package usage, share, toast, old notification, and old calendar dependencies from the active app.
 
 ## Unsupported Or Local-Only
 
-- OBD diagnostics remain local-only because the Motornauts customer API has no OBD/device endpoints.
+- OBD diagnostics remain local-only because the Motornauts customer API has no OBD/device endpoints. The restored utility uses BLE UART-style ELM327 adapters so the Flutter app can compile for both Android and iOS; Bluetooth Classic-only ELM327 adapters are not supported on iOS and are not wired back into the app.
 - 3D vehicle viewing remains local-only because Motornauts does not expose a customer GLB/model-serving endpoint.
 - Push notification device registration is not implemented because the customer API catalog has no push-token endpoint.
 - SSE timeline streaming remains disabled by default; repair-order timeline uses polling.

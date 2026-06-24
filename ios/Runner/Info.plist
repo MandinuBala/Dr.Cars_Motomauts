@@ -39,6 +39,10 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Motornauts uses the camera only when you choose to capture a vehicle document for upload.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Motornauts uses Bluetooth only when you choose to connect a local OBD BLE adapter for diagnostics.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Motornauts uses Bluetooth only when you choose to connect a local OBD BLE adapter for diagnostics.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Motornauts may save downloaded service documents only when you request it.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

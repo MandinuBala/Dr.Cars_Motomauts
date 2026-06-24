@@ -8,6 +8,79 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('theme maps THEME.md palettes and controls', () {
+    final light = buildMotornautsTheme(Brightness.light);
+    final lightColors = light.extension<MotornautsThemeColors>()!;
+    final dark = buildMotornautsTheme(Brightness.dark);
+    final darkColors = dark.extension<MotornautsThemeColors>()!;
+
+    expect(light.scaffoldBackgroundColor, const Color(0xFFFAFAF7));
+    expect(light.cardTheme.color, const Color(0xFFFFFFFF));
+    expect(light.colorScheme.primary, const Color(0xFFFF5A1F));
+    expect(lightColors.accentHover, const Color(0xFFE54A14));
+    expect(lightColors.secondaryAccent, const Color(0xFF1E2A4A));
+
+    expect(dark.scaffoldBackgroundColor, const Color(0xFF000000));
+    expect(dark.cardTheme.color, const Color(0xFF101014));
+    expect(dark.colorScheme.primary, const Color(0xFF00E5FF));
+    expect(darkColors.accentHover, const Color(0xFF33ECFF));
+    expect(darkColors.secondaryAccent, const Color(0xFFFF2D95));
+
+    expect(light.navigationBarTheme.height, 72);
+    expect(
+      light.navigationBarTheme.labelBehavior,
+      NavigationDestinationLabelBehavior.alwaysShow,
+    );
+    expect(
+      (light.inputDecorationTheme.focusedBorder! as OutlineInputBorder)
+          .borderSide
+          .color,
+      const Color(0xFFFF5A1F),
+    );
+    expect(
+      dark.filledButtonTheme.style!.backgroundColor!.resolve({}),
+      const Color(0xFF00E5FF),
+    );
+    expect(
+      light.filledButtonTheme.style!.minimumSize!.resolve({}),
+      const Size(64, 48),
+    );
+    expect(light.snackBarTheme.behavior, SnackBarBehavior.floating);
+  });
+
+  testWidgets('shared cards and status tiles use themed surfaces', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildMotornautsTheme(Brightness.light),
+        home: const Scaffold(
+          body: Column(
+            children: [
+              InfoCard(title: 'Card title', child: Text('Card body')),
+              DataListTile(
+                title: 'Invoice',
+                subtitle: 'LKR 120.00',
+                status: 'PAID',
+                icon: Icons.receipt_long_outlined,
+              ),
+              EmptyState(
+                icon: Icons.event_busy_outlined,
+                title: 'No appointments',
+                message: 'Nothing scheduled.',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Card title'), findsOneWidget);
+    expect(find.text('PAID'), findsOneWidget);
+    expect(find.text('No appointments'), findsOneWidget);
+    expect(find.byType(Card), findsNWidgets(3));
+  });
+
   testWidgets('bootstrap stops on unavailable tenant', (tester) async {
     await tester.pumpWidget(
       MotornautsApp(

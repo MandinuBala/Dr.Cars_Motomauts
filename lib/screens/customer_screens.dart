@@ -7,12 +7,18 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../app_theme.dart';
 import '../motornauts/api_error.dart';
 import '../motornauts/data_helpers.dart';
 import '../motornauts/idempotency.dart';
 import '../motornauts/link_parser.dart';
 import '../motornauts/motornauts_client.dart';
 import '../motornauts/payloads.dart';
+
+const double _mobileMaxContentWidth = 720;
+const EdgeInsets _mobilePagePadding = EdgeInsets.all(16);
+const double _cardBottomSpacing = 12;
+const double _tileBottomSpacing = 8;
 
 const List<String> _vehicleTypes = [
   'CAR',
@@ -40,6 +46,151 @@ const List<String> _documentTypes = [
   'EMISSION_TEST',
   'OTHER',
 ];
+
+class _MobileBody extends StatelessWidget {
+  const _MobileBody({required this.child, this.safeArea = true});
+
+  final Widget child;
+  final bool safeArea;
+
+  @override
+  Widget build(BuildContext context) {
+    final body = Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: _mobileMaxContentWidth),
+        child: child,
+      ),
+    );
+    return safeArea ? SafeArea(top: false, child: body) : body;
+  }
+}
+
+class _MobileListView extends StatelessWidget {
+  const _MobileListView({
+    required this.children,
+    this.listKey,
+    this.safeArea = true,
+  });
+
+  final List<Widget> children;
+  final Key? listKey;
+  final bool safeArea;
+
+  @override
+  Widget build(BuildContext context) {
+    return _MobileBody(
+      safeArea: safeArea,
+      child: ListView(
+        key: listKey,
+        padding: _mobilePagePadding,
+        physics: const AlwaysScrollableScrollPhysics(),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        children: children,
+      ),
+    );
+  }
+}
+
+class _LoadingBar extends StatelessWidget {
+  const _LoadingBar();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = MotornautsThemeColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(99),
+        child: LinearProgressIndicator(
+          minHeight: 3,
+          backgroundColor: colors.accentMuted,
+        ),
+      ),
+    );
+  }
+}
+
+class _ButtonProgressIndicator extends StatelessWidget {
+  const _ButtonProgressIndicator();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: 18,
+      child: CircularProgressIndicator(
+        strokeWidth: 2,
+        color:
+            IconTheme.of(context).color ??
+            Theme.of(context).colorScheme.primary,
+      ),
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = label.trim();
+    if (text.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final colors = MotornautsThemeColors.of(context);
+    final statusColor = _statusColor(colors, text);
+    final labelColor =
+        Theme.of(context).brightness == Brightness.light
+            ? colors.textPrimary
+            : statusColor;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: colors.statusBackground(statusColor),
+        border: Border.all(color: colors.statusBorder(statusColor)),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: labelColor,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  Color _statusColor(MotornautsThemeColors colors, String value) {
+    final lower = value.toLowerCase();
+    if (lower.contains('approved') ||
+        lower.contains('active') ||
+        lower.contains('available') ||
+        lower.contains('complete') ||
+        lower.contains('paid') ||
+        lower.contains('success')) {
+      return colors.success;
+    }
+    if (lower.contains('cancel') ||
+        lower.contains('declin') ||
+        lower.contains('denied') ||
+        lower.contains('expired') ||
+        lower.contains('fail') ||
+        lower.contains('reject')) {
+      return colors.danger;
+    }
+    if (lower.contains('pending') ||
+        lower.contains('draft') ||
+        lower.contains('requested') ||
+        lower.contains('waiting')) {
+      return colors.warning;
+    }
+    return colors.info;
+  }
+}
 
 class BootstrapScreen extends StatefulWidget {
   const BootstrapScreen({required this.client, super.key});
@@ -101,7 +252,9 @@ class _BootstrapScreenState extends State<BootstrapScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+        body: SafeArea(child: Center(child: CircularProgressIndicator())),
+      );
     }
 
     if (_error != null || _tenantProfile == null) {
@@ -139,29 +292,49 @@ class TenantUnavailableScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = MotornautsThemeColors.of(context);
     return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.domain_disabled_outlined, size: 56),
-              const SizedBox(height: 16),
-              Text(
-                'Tenant unavailable',
-                style: Theme.of(context).textTheme.headlineSmall,
-                textAlign: TextAlign.center,
+      body: SafeArea(
+        top: false,
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.domain_disabled_outlined,
+                    size: 56,
+                    color: colors.textSecondary,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Tenant unavailable',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: colors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: onRetry,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Retry'),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              Text(message, textAlign: TextAlign.center),
-              const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -429,22 +602,27 @@ class _AuthScreenState extends State<AuthScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(tenantName)),
       body: SafeArea(
-        child: DefaultTabController(
-          length: 2,
-          child: Column(
-            children: [
-              const TabBar(
-                tabs: [
-                  Tab(icon: Icon(Icons.password), text: 'OTP Login'),
-                  Tab(icon: Icon(Icons.person_add_alt), text: 'Register'),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _mobileMaxContentWidth),
+            child: DefaultTabController(
+              length: 2,
+              child: Column(
+                children: [
+                  const TabBar(
+                    tabs: [
+                      Tab(icon: Icon(Icons.password), text: 'OTP Login'),
+                      Tab(icon: Icon(Icons.person_add_alt), text: 'Register'),
+                    ],
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      children: [_buildOtpTab(), _buildRegistrationTab()],
+                    ),
+                  ),
                 ],
               ),
-              Expanded(
-                child: TabBarView(
-                  children: [_buildOtpTab(), _buildRegistrationTab()],
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -452,8 +630,8 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Widget _buildOtpTab() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    return _MobileListView(
+      safeArea: false,
       children: [
         Text(
           'Sign in with your customer OTP. Password and social login are not used for Motornauts customer sessions.',
@@ -514,10 +692,7 @@ class _AuthScreenState extends State<AuthScreen> {
           onPressed: _requestingOtp ? null : _requestOtp,
           icon:
               _requestingOtp
-                  ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
+                  ? const _ButtonProgressIndicator()
                   : const Icon(Icons.send_outlined),
           label: const Text('Request OTP'),
         ),
@@ -538,10 +713,7 @@ class _AuthScreenState extends State<AuthScreen> {
             onPressed: _verifyingOtp ? null : _verifyOtp,
             icon:
                 _verifyingOtp
-                    ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
+                    ? const _ButtonProgressIndicator()
                     : const Icon(Icons.verified_user_outlined),
             label: const Text('Verify and continue'),
           ),
@@ -569,9 +741,9 @@ class _AuthScreenState extends State<AuthScreen> {
 
     return Form(
       key: _registrationFormKey,
-      child: ListView(
-        key: const Key('registration-scroll'),
-        padding: const EdgeInsets.all(16),
+      child: _MobileListView(
+        listKey: const Key('registration-scroll'),
+        safeArea: false,
         children: [
           if (_termsCopy != null && _termsCopy!.isNotEmpty)
             InfoCard(title: 'Tenant terms', child: Text(_termsCopy!)),
@@ -671,10 +843,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 !_termsAccepted || _registering ? null : _submitRegistration,
             icon:
                 _registering
-                    ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
+                    ? const _ButtonProgressIndicator()
                     : const Icon(Icons.send_outlined),
             label: const Text('Submit registration request'),
           ),
@@ -769,7 +938,7 @@ class _CustomerShellState extends State<CustomerShell> {
     ];
 
     return Scaffold(
-      body: SafeArea(child: screens[_index]),
+      body: SafeArea(top: true, bottom: false, child: screens[_index]),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (value) => setState(() => _index = value),
@@ -854,11 +1023,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
+      child: _MobileListView(
         children: [
           HeaderRow(title: 'Home', onRefresh: _load),
-          if (_loading) const LinearProgressIndicator(),
+          if (_loading) const _LoadingBar(),
           if (_error != null)
             ErrorPanel(message: _error!, onRetry: _load)
           else ...[
@@ -1000,8 +1168,7 @@ class _GarageScreenState extends State<GarageScreen> {
   Widget build(BuildContext context) {
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
+      child: _MobileListView(
         children: [
           HeaderRow(
             title: 'Garage',
@@ -1013,7 +1180,7 @@ class _GarageScreenState extends State<GarageScreen> {
               icon: const Icon(Icons.add_circle_outline),
             ),
           ),
-          if (_loading) const LinearProgressIndicator(),
+          if (_loading) const _LoadingBar(),
           if (_error != null)
             ErrorPanel(message: _error!, onRetry: _load)
           else ...[
@@ -1222,8 +1389,7 @@ class _VehicleEditorScreenState extends State<VehicleEditorScreen> {
       appBar: AppBar(title: Text(editing ? 'Edit vehicle' : 'Add vehicle')),
       body: Form(
         key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
+        child: _MobileListView(
           children: [
             _formText(
               _registrationController,
@@ -1295,10 +1461,7 @@ class _VehicleEditorScreenState extends State<VehicleEditorScreen> {
               onPressed: _saving ? null : _save,
               icon:
                   _saving
-                      ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                      ? const _ButtonProgressIndicator()
                       : const Icon(Icons.save_outlined),
               label: Text(editing ? 'Save changes' : 'Create vehicle'),
             ),
@@ -1534,10 +1697,9 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
       appBar: AppBar(title: const Text('Vehicle detail')),
       body: RefreshIndicator(
         onRefresh: _load,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
+        child: _MobileListView(
           children: [
-            if (_loading) const LinearProgressIndicator(),
+            if (_loading) const _LoadingBar(),
             if (_error != null)
               ErrorPanel(message: _error!, onRetry: _load)
             else ...[
@@ -1580,12 +1742,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                       onPressed: _uploading ? null : _uploadDocument,
                       icon:
                           _uploading
-                              ? const SizedBox.square(
-                                dimension: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
+                              ? const _ButtonProgressIndicator()
                               : const Icon(Icons.upload_file_outlined),
                       label: const Text('Choose and upload'),
                     ),
@@ -1878,11 +2035,10 @@ class _BookingScreenState extends State<BookingScreen> {
   Widget build(BuildContext context) {
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
+      child: _MobileListView(
         children: [
           HeaderRow(title: 'Booking', onRefresh: _load),
-          if (_loading) const LinearProgressIndicator(),
+          if (_loading) const _LoadingBar(),
           if (_error != null)
             ErrorPanel(message: _error!, onRetry: _load)
           else ...[
@@ -1962,10 +2118,7 @@ class _BookingScreenState extends State<BookingScreen> {
                         _checkingAvailability ? null : _checkAvailability,
                     icon:
                         _checkingAvailability
-                            ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
+                            ? const _ButtonProgressIndicator()
                             : const Icon(Icons.event_available_outlined),
                     label: const Text('Check availability'),
                   ),
@@ -2000,10 +2153,7 @@ class _BookingScreenState extends State<BookingScreen> {
                     onPressed: _submitting ? null : _submitBooking,
                     icon:
                         _submitting
-                            ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
+                            ? const _ButtonProgressIndicator()
                             : const Icon(Icons.send_outlined),
                     label: const Text('Request appointment'),
                   ),
@@ -2150,10 +2300,9 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
     );
     return Scaffold(
       appBar: AppBar(title: const Text('Appointment')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      body: _MobileListView(
         children: [
-          if (_loading) const LinearProgressIndicator(),
+          if (_loading) const _LoadingBar(),
           if (_error != null)
             ErrorPanel(message: _error!, onRetry: _load)
           else if (appointment != null) ...[
@@ -2237,11 +2386,10 @@ class _ServiceScreenState extends State<ServiceScreen> {
   Widget build(BuildContext context) {
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
+      child: _MobileListView(
         children: [
           HeaderRow(title: 'Service', onRefresh: _load),
-          if (_loading) const LinearProgressIndicator(),
+          if (_loading) const _LoadingBar(),
           if (_error != null)
             ErrorPanel(message: _error!, onRetry: _load)
           else ...[
@@ -2520,10 +2668,9 @@ class _RepairOrderDetailScreenState extends State<RepairOrderDetailScreen> {
       appBar: AppBar(title: const Text('Repair order')),
       body: RefreshIndicator(
         onRefresh: _load,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
+        child: _MobileListView(
           children: [
-            if (_loading) const LinearProgressIndicator(),
+            if (_loading) const _LoadingBar(),
             if (_error != null)
               ErrorPanel(message: _error!, onRetry: _load)
             else if (_repairOrder != null) ...[
@@ -2760,10 +2907,9 @@ class _EstimateDetailScreenState extends State<EstimateDetailScreen> {
     );
     return Scaffold(
       appBar: AppBar(title: const Text('Estimate')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      body: _MobileListView(
         children: [
-          if (_loading) const LinearProgressIndicator(),
+          if (_loading) const _LoadingBar(),
           if (_error != null)
             ErrorPanel(message: _error!, onRetry: _load)
           else if (_estimate != null) ...[
@@ -2798,10 +2944,7 @@ class _EstimateDetailScreenState extends State<EstimateDetailScreen> {
               onPressed: _submitting ? null : _submit,
               icon:
                   _submitting
-                      ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                      ? const _ButtonProgressIndicator()
                       : const Icon(Icons.send_outlined),
               label: const Text('Submit decisions'),
             ),
@@ -2817,46 +2960,56 @@ class _EstimateDetailScreenState extends State<EstimateDetailScreen> {
       return InfoCard(title: 'Line item', child: JsonPreview(data: item));
     }
     _notes.putIfAbsent(id, TextEditingController.new);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              valueText(item, const [
-                'description',
-                'name',
-                'title',
-              ], fallback: id),
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 4),
-            Text(_moneyText(item)),
-            const SizedBox(height: 8),
-            SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(value: 'APPROVED', label: Text('Approve')),
-                ButtonSegment(value: 'REJECTED', label: Text('Reject')),
-              ],
-              emptySelectionAllowed: true,
-              selected: _decisions[id] == null ? const {} : {_decisions[id]!},
-              onSelectionChanged: (value) {
-                setState(() {
-                  if (value.isEmpty) {
-                    _decisions.remove(id);
-                  } else {
-                    _decisions[id] = value.first;
-                  }
-                });
-              },
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _notes[id],
-              decoration: const InputDecoration(labelText: 'Optional note'),
-            ),
-          ],
+    final colors = MotornautsThemeColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: _cardBottomSpacing),
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                valueText(item, const [
+                  'description',
+                  'name',
+                  'title',
+                ], fallback: id),
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _moneyText(item),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: colors.textSecondary),
+              ),
+              const SizedBox(height: 8),
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'APPROVED', label: Text('Approve')),
+                  ButtonSegment(value: 'REJECTED', label: Text('Reject')),
+                ],
+                emptySelectionAllowed: true,
+                selected: _decisions[id] == null ? const {} : {_decisions[id]!},
+                onSelectionChanged: (value) {
+                  setState(() {
+                    if (value.isEmpty) {
+                      _decisions.remove(id);
+                    } else {
+                      _decisions[id] = value.first;
+                    }
+                  });
+                },
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _notes[id],
+                decoration: const InputDecoration(labelText: 'Optional note'),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -2954,10 +3107,9 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Invoice')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      body: _MobileListView(
         children: [
-          if (_loading) const LinearProgressIndicator(),
+          if (_loading) const _LoadingBar(),
           if (_error != null)
             ErrorPanel(message: _error!, onRetry: _load)
           else if (_invoice != null) ...[
@@ -3003,8 +3155,7 @@ class MoreScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    return _MobileListView(
       children: [
         HeaderRow(title: 'More'),
         DataListTile(
@@ -3194,10 +3345,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(title: const Text('Profile')),
       body: Form(
         key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
+        child: _MobileListView(
           children: [
-            if (_loading) const LinearProgressIndicator(),
+            if (_loading) const _LoadingBar(),
             if (_error != null)
               ErrorPanel(message: _error!, onRetry: _load)
             else ...[
@@ -3222,10 +3372,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onPressed: _saving ? null : _save,
                 icon:
                     _saving
-                        ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
+                        ? const _ButtonProgressIndicator()
                         : const Icon(Icons.save_outlined),
                 label: const Text('Save profile'),
               ),
@@ -3336,8 +3483,7 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
       appBar: AppBar(title: const Text('Compliance request')),
       body: Form(
         key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
+        child: _MobileListView(
           children: [
             DropdownButtonFormField<String>(
               initialValue: _requestType,
@@ -3398,10 +3544,7 @@ class _ComplianceScreenState extends State<ComplianceScreen> {
               onPressed: _submitting ? null : _submit,
               icon:
                   _submitting
-                      ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                      ? const _ButtonProgressIndicator()
                       : const Icon(Icons.send_outlined),
               label: const Text('Submit request'),
             ),
@@ -3452,8 +3595,7 @@ class _LinkInputScreenState extends State<LinkInputScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Open link')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      body: _MobileListView(
         children: [
           TextField(
             controller: _linkController,
@@ -3600,10 +3742,9 @@ class _PaymentRequestScreenState extends State<PaymentRequestScreen> {
       appBar: AppBar(title: const Text('Payment request')),
       body: RefreshIndicator(
         onRefresh: _load,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
+        child: _MobileListView(
           children: [
-            if (_loading) const LinearProgressIndicator(),
+            if (_loading) const _LoadingBar(),
             if (_error != null)
               ErrorPanel(message: _error!, onRetry: _load)
             else if (_payment != null) ...[
@@ -3667,7 +3808,7 @@ class _ProviderHandoffScreenState extends State<ProviderHandoffScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Checkout')),
-      body: WebViewWidget(controller: _controller),
+      body: SafeArea(top: false, child: WebViewWidget(controller: _controller)),
     );
   }
 }
@@ -3769,10 +3910,9 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Feedback')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      body: _MobileListView(
         children: [
-          if (_loading) const LinearProgressIndicator(),
+          if (_loading) const _LoadingBar(),
           if (_error != null)
             ErrorPanel(message: _error!, onRetry: _load)
           else if (_submitted)
@@ -3807,10 +3947,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
               onPressed: _submitting ? null : _submit,
               icon:
                   _submitting
-                      ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                      ? const _ButtonProgressIndicator()
                       : const Icon(Icons.send_outlined),
               label: const Text('Submit feedback'),
             ),
@@ -3833,8 +3970,7 @@ class LocalUtilityScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text(isObd ? 'Local OBD utility' : 'Local 3D viewer'),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      body: _MobileListView(
         children: [
           EmptyState(
             icon: isObd ? Icons.sensors_outlined : Icons.view_in_ar_outlined,
@@ -3864,6 +4000,7 @@ class HeaderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = MotornautsThemeColors.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -3879,7 +4016,7 @@ class HeaderRow extends StatelessWidget {
             IconButton(
               tooltip: 'Refresh',
               onPressed: onRefresh,
-              icon: const Icon(Icons.refresh),
+              icon: Icon(Icons.refresh, color: colors.accent),
             ),
         ],
       ),
@@ -3895,17 +4032,26 @@ class InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            child,
-          ],
+    final colors = MotornautsThemeColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: _cardBottomSpacing),
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(color: colors.textPrimary),
+              ),
+              const SizedBox(height: 8),
+              child,
+            ],
+          ),
         ),
       ),
     );
@@ -3920,12 +4066,20 @@ class ErrorPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = MotornautsThemeColors.of(context);
     return InfoCard(
       title: 'Could not load',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(message),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.error_outline, color: colors.danger),
+              const SizedBox(width: 10),
+              Expanded(child: Text(message)),
+            ],
+          ),
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: onRetry,
@@ -3952,18 +4106,28 @@ class EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Icon(icon, size: 40),
-            const SizedBox(height: 10),
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 4),
-            Text(message, textAlign: TextAlign.center),
-          ],
+    final colors = MotornautsThemeColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: _cardBottomSpacing),
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              Icon(icon, size: 40, color: colors.textSecondary),
+              const SizedBox(height: 10),
+              Text(title, style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 4),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: colors.textSecondary),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -3990,20 +4154,50 @@ class DataListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: Icon(icon),
-        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Text(
-          status.isEmpty ? subtitle : '$subtitle\n$status',
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
+    final colors = MotornautsThemeColors.of(context);
+    final statusText = status.trim();
+    final subtitleText = subtitle.trim();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: _tileBottomSpacing),
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          leading: Container(
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: colors.accentSubtle,
+              border: Border.all(color: colors.borderDefault),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: colors.accent),
+          ),
+          title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (subtitleText.isNotEmpty)
+                  Text(
+                    subtitleText,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                if (statusText.isNotEmpty) ...[
+                  if (subtitleText.isNotEmpty) const SizedBox(height: 6),
+                  _StatusBadge(statusText),
+                ],
+              ],
+            ),
+          ),
+          minVerticalPadding: 10,
+          trailing:
+              trailing ??
+              (onTap == null ? null : const Icon(Icons.chevron_right)),
+          onTap: onTap,
         ),
-        trailing:
-            trailing ??
-            (onTap == null ? null : const Icon(Icons.chevron_right)),
-        onTap: onTap,
       ),
     );
   }
@@ -4026,26 +4220,54 @@ class KeyValueList extends StatelessWidget {
     if (entries.isEmpty) {
       return const Text('No data returned.');
     }
-    return Column(
-      children: [
-        for (final key in entries)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: 136,
-                  child: Text(
-                    key,
-                    style: Theme.of(context).textTheme.labelMedium,
-                  ),
-                ),
-                Expanded(child: Text(object[key].toString())),
-              ],
-            ),
-          ),
-      ],
+    final colors = MotornautsThemeColors.of(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 360;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final key in entries)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child:
+                    compact
+                        ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              key,
+                              style: Theme.of(context).textTheme.labelMedium,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              object[key].toString(),
+                              style: TextStyle(color: colors.textPrimary),
+                            ),
+                          ],
+                        )
+                        : Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              width: 136,
+                              child: Text(
+                                key,
+                                style: Theme.of(context).textTheme.labelMedium,
+                              ),
+                            ),
+                            Expanded(
+                              child: Text(
+                                object[key].toString(),
+                                style: TextStyle(color: colors.textPrimary),
+                              ),
+                            ),
+                          ],
+                        ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -4064,7 +4286,7 @@ class JsonPreview extends StatelessWidget {
     final text = data is String ? data.toString() : encoder.convert(data);
     return SelectableText(
       text.length > 1800 ? '${text.substring(0, 1800)}\n...' : text,
-      style: Theme.of(context).textTheme.bodySmall,
+      style: Theme.of(context).textTheme.bodySmall?.copyWith(height: 1.35),
     );
   }
 }

@@ -30,37 +30,18 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  intl: ^0.19.0
-  flutter_svg: ^2.0.9
-  font_awesome_flutter: ^10.8.0
   http: ^1.2.1
-  flutter_polyline_points: ^2.1.0
-  flutter_bluetooth_serial: ^0.4.0
-  table_calendar: ^3.0.9
-  google_sign_in: ^6.2.1
-  flutter_facebook_auth: ^7.1.1
+  flutter_secure_storage: ^10.0.0
+  file_picker: ^10.3.3
+  app_links: ^6.4.1
   webview_flutter: ^4.10.0
-  google_maps_flutter: ^2.9.0
-  geolocator: ^13.0.2
-  permission_handler: ^11.3.1
-  google_fonts: ^6.2.1
-  image_picker: ^1.1.2
-  google_mlkit_text_recognition: ^0.13.0
-  flutter_local_notifications: ^17.2.4
-  timezone: ^0.9.4
+  url_launcher: ^6.3.1
+  intl: ^0.19.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  
-  url_launcher: ^6.3.1
-  fluttertoast: ^8.2.12
-  rxdart: ^0.28.0
   shared_preferences: ^2.0.15
-  onesignal_flutter:
-    git:
-      url: https://github.com/milansurelia/OneSignal-Flutter-SDK.git
-  share_plus: ^11.0.0
 
 
 dev_dependencies:
@@ -73,7 +54,7 @@ flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/images/logo.png"
-  remove_alpha_ios: true   for ios to remove the alpha channel from the image, which can help ensure that the icon looks correct on iOS devices. This is particularly important if your original image has transparency, as iOS icons typically do not support transparent backgrounds. By setting remove_alpha_ios to true, the package will automatically process the image to remove any alpha channel, resulting in a solid background for the iOS app icon.  This can help prevent issues with the icon appearing incorrectly or having unintended transparency when displayed on iOS devices. 
+  remove_alpha_ios: true
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

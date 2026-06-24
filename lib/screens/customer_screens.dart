@@ -419,12 +419,12 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final tenantName = valueText(widget.tenantProfile, const [
-      'displayName',
-      'name',
-      'tenantName',
-      'slug',
-    ], fallback: widget.client.config.tenantSlug);
+    final tenant = objectMap(widget.tenantProfile['tenant']);
+    final tenantName = valueText(
+      tenant.isEmpty ? widget.tenantProfile : tenant,
+      const ['displayName', 'name', 'tenantName', 'slug'],
+      fallback: widget.client.config.tenantSlug,
+    );
 
     return Scaffold(
       appBar: AppBar(title: Text(tenantName)),
@@ -916,7 +916,12 @@ class _GarageScreenState extends State<GarageScreen> {
     try {
       final profile = await widget.client.getMyCustomerProfile();
       final vehicles = await widget.client.listCustomerVehicles();
-      final summary = await widget.client.getVehicleSummary();
+      Object? summary;
+      try {
+        summary = await widget.client.getVehicleSummary();
+      } catch (error) {
+        summary = {'unavailable': true, 'message': _messageFor(error)};
+      }
       if (!mounted) {
         return;
       }

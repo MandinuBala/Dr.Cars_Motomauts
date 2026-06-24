@@ -37,6 +37,8 @@ All values are overridable with `--dart-define`. Android emulator users should r
   - Invoice detail and generated PDF download URL flows.
   - Payment request and feedback tokenized link screens.
   - Compliance request intake.
+  - Tenant name rendering from the nested `tenant` object returned by the live public profile endpoint.
+  - Garage list rendering now tolerates a forbidden or unavailable vehicle-summary response.
   - Local-only OBD and 3D placeholder screens that do not sync to Motornauts.
 - Native support.
   - Android `motornauts://` and placeholder HTTPS deep-link filters.
@@ -47,6 +49,7 @@ All values are overridable with `--dart-define`. Android emulator users should r
   - Config/path generation, API error parsing, cookie extraction, payload compaction, idempotency keys, link parsing.
   - API client session cookie behavior, 401 clearing, and customer endpoint path coverage.
   - Widget coverage for tenant unavailable, OTP login, and registration terms gating.
+  - Gated live integration test for tenant bootstrap, OTP login, Home, Garage, and Service screens.
 
 ## Changed
 
@@ -81,8 +84,16 @@ Completed successfully:
 
 - `flutter analyze`
 - `flutter test`
+- `flutter test integration_test/live_customer_login_test.dart -d <ios-simulator-id> --dart-define=API_BASE_URL=http://localhost:4000/api/v1 --dart-define=TENANT_SLUG=isira-motors --dart-define=LIVE_CUSTOMER_EMAIL=<dev-customer-email> --dart-define=LIVE_CUSTOMER_OTP=<dev-otp>`
 - `flutter build apk --debug`
 - `flutter build ios --simulator`
+
+Live API notes:
+
+- Local Vehiko API needed `pnpm --filter @motornauts/shared build` before `pnpm --filter @motornauts/api dev`; the API dev script then served `http://localhost:4000/api/v1`.
+- The provided dev customer email and OTP successfully created a customer session for tenant `isira-motors`.
+- Live customer endpoints returned customer profile, 3 vehicles, booking options, and 6 repair orders.
+- `GET /t/isira-motors/vehicles/summary` returned customer `403 RBAC_FORBIDDEN`; Garage now treats that summary as optional and still renders the vehicle list.
 
 Source checks:
 

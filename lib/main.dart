@@ -1,99 +1,95 @@
-import 'package:dr_cars_fyp/auth/auth_service.dart';
-import 'package:dr_cars_fyp/auth/welcome.dart';
-import 'package:dr_cars_fyp/service/service_menu.dart';
-import 'package:flutter/material.dart';
-import 'package:dr_cars_fyp/user/main_dashboard.dart';
-import 'package:dr_cars_fyp/admin/dashboard/admin_dashboard_page.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:onesignal_flutter/onesignal_flutter.dart';
-import 'package:dr_cars_fyp/providers/locale_provider.dart';
-import 'package:dr_cars_fyp/theme/app_theme.dart';
-import 'package:dr_cars_fyp/service/document_notification_service.dart';
+import 'dart:async';
 
-final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.light);
+import 'package:app_links/app_links.dart';
+import 'package:flutter/material.dart';
+
+import 'app_theme.dart';
+import 'motornauts/app_config.dart';
+import 'motornauts/link_parser.dart';
+import 'motornauts/motornauts_client.dart';
+import 'screens/customer_screens.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await DocumentNotificationService.init();
-  OneSignal.initialize("fd5e46c1-2563-4dd9-8b53-931517023f89");
-
-  final prefs = await SharedPreferences.getInstance();
-  bool isDarkMode = prefs.getBool('darkMode') ?? false;
-  themeNotifier.value = isDarkMode ? ThemeMode.dark : ThemeMode.light;
-
-  await initLocale();
-
-  runApp(const MyApp());
+  runApp(MotornautsApp(config: MotornautsConfig.fromEnvironment()));
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class MotornautsApp extends StatefulWidget {
+  const MotornautsApp({
+    required this.config,
+    this.client,
+    this.enableLinkHandling = true,
+    super.key,
+  });
+
+  final MotornautsConfig config;
+  final MotornautsGateway? client;
+  final bool enableLinkHandling;
 
   @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeNotifier,
-      builder: (_, ThemeMode mode, __) {
-        return MaterialApp(
-          debugShowCheckedModeBanner: false,
-          theme: buildAppTheme(Brightness.light), // ← luxury light
-          darkTheme: buildAppTheme(Brightness.dark), // ← luxury dark
-          themeMode: mode,
-          home: const AuthCheck(),
-        );
-      },
-    );
-  }
+  State<MotornautsApp> createState() => _MotornautsAppState();
 }
 
-class AuthCheck extends StatefulWidget {
-  const AuthCheck({super.key});
-  @override
-  _AuthCheckState createState() => _AuthCheckState();
-}
-
-class _AuthCheckState extends State<AuthCheck> {
-  final AuthService _authService = AuthService();
+class _MotornautsAppState extends State<MotornautsApp> {
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  late final MotornautsGateway _client =
+      widget.client ?? MotornautsClient(config: widget.config);
+  StreamSubscription<Uri>? _linkSubscription;
 
   @override
   void initState() {
     super.initState();
-    _checkUser();
+    if (widget.enableLinkHandling) {
+      _initLinks();
+    }
   }
 
-  Future<void> _checkUser() async {
-    final user = await _authService.getCurrentUser();
-    final type =
-        user?['userType']?.toString() ??
-        user?['User Type']?.toString() ??
-        'User';
-    final screen = _screenForUserType(type);
+  Future<void> _initLinks() async {
+    final appLinks = AppLinks();
+    try {
+      final initial = await appLinks.getInitialLink();
+      if (!mounted || initial == null) {
+        return;
+      }
+      _openLink(initial);
+    } catch (_) {
+      return;
+    }
 
-    if (!mounted) return;
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => screen),
+    _linkSubscription = appLinks.uriLinkStream.listen(_openLink);
+  }
+
+  void _openLink(Uri uri) {
+    final parsed = parseMotornautsLink(uri);
+    if (parsed == null) {
+      return;
+    }
+    final navigator = _navigatorKey.currentState;
+    if (navigator == null) {
+      return;
+    }
+    navigator.push(
+      MaterialPageRoute<void>(
+        builder: (_) => LinkDestinationScreen(client: _client, link: parsed),
+      ),
     );
   }
 
-  Widget _screenForUserType(String type) {
-    switch (type) {
-      case 'Vehicle Owner':
-        return const DashboardScreen();
-      case 'Service Center':
-        return const HomeScreen();
-      case 'App Admin':
-        return const ServiceCenterApprovalPage();
-      default:
-        return const Welcome();
-    }
+  @override
+  void dispose() {
+    _linkSubscription?.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.richBlack,
-      body: Center(child: CircularProgressIndicator(color: AppColors.gold)),
+    return MaterialApp(
+      navigatorKey: _navigatorKey,
+      debugShowCheckedModeBanner: false,
+      title: 'Motornauts',
+      theme: buildMotornautsTheme(Brightness.light),
+      darkTheme: buildMotornautsTheme(Brightness.dark),
+      home: BootstrapScreen(client: _client),
     );
   }
 }
